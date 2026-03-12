@@ -2,8 +2,9 @@ class ApiConfig {
   // ✅ Choose ONE depending on how you run your app:
 
   // Android Emulator -> points to your PC localhost
-static const String baseUrl = "http://192.168.100.3:5000";  // Use your machine's IP
+// static const String baseUrl = "http://192.168.100.3:5000";  // Use your machine's IP
 
+static const String baseUrl = "http://10.0.2.2:8000";
 
   // iOS Simulator:
   // static const String baseUrl = "http://localhost:5000";
