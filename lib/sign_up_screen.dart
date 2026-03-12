@@ -43,14 +43,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/api/auth/register'),
+        Uri.parse('http://localhost:3000/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'name': _nameController.text,
           'email': _emailController.text,
           'password': _passwordController.text,
-          'nmls_id': _nmlsController.text,
-          'state': _selectedState,
+          'nmls_id': _nmlsController.text.isEmpty ? null : _nmlsController.text,  // Ensure this is null if empty
+          'state': _selectedState.isEmpty ? 'CA' : _selectedState,  // Ensure 'CA' is used as default if empty
         }),
       );
 
