@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'config/api_config.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -19,9 +20,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   static const Color textMuted = Color(0xFF6B7E92);
   static const Color errorRed = Color(0xFFE05252);
   static const Color successGreen = Color(0xFF2E9E6B);
-
-  // ── API ────────────────────────────────────────────────────
-  static const String baseUrl = 'http://10.0.2.2:5000/api';
 
   // ── Step control (0 = email, 1 = code+password, 2 = success) ──
   int _step = 0;
@@ -85,7 +83,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/forgot-password'),
+        Uri.parse(ApiConfig.forgotPassword),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': _emailController.text.trim()}),
       );
@@ -126,7 +124,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/reset-password'),
+        Uri.parse(ApiConfig.resetPassword),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'userId': _userId,
@@ -166,7 +164,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/resend-code'),
+        Uri.parse(ApiConfig.resendCode),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'userId': _userId}),
       );

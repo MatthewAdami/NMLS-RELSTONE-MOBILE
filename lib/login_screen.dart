@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'config/api_config.dart';
 
 // Import your separate screen files
 import 'dashboard_screen.dart';
@@ -38,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/api/auth/login'),
+        Uri.parse(ApiConfig.login),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': _emailController.text,
