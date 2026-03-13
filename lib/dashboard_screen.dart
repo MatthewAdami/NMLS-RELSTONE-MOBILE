@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
 import 'package:nmls_mobile/courses_screen.dart';
+import 'package:nmls_mobile/how_it_works_screen.dart';
+import 'package:nmls_mobile/about_relstone_screen.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -99,7 +101,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     setState(() { _loading = true; _error = ''; });
     try {
       final res = await http
-          .get(Uri.parse('$_apiBase/dashboard'), headers: _headers)
+          .get(Uri.parse('$_apiBase/data'), headers: _headers)
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         setState(() => _dashboard = Map<String, dynamic>.from(jsonDecode(res.body) as Map));
@@ -122,6 +124,18 @@ class _DashboardScreenState extends State<DashboardScreen>
     _fadeCtrl.reset();
     setState(() => _tab = t);
     _fadeCtrl.forward();
+  }
+
+    void _goToHowItWorks() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => HowItWorksScreen()),
+    );
+    }
+
+  void _goToAboutRelstone() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => AboutRelstonePage()),
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────────
@@ -180,7 +194,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           stops: [0.0, 0.45, 1.0],
           begin: Alignment.centerLeft, end: Alignment.centerRight),
       borderRadius: BorderRadius.circular(22),
-      boxShadow: [BoxShadow(color: kDark.withOpacity(0.22), blurRadius: 28, offset: const Offset(0, 8))],
+      boxShadow: [BoxShadow(color: kDark.withValues(alpha: 0.22), blurRadius: 28, offset: const Offset(0, 8))],
     ),
     child: Stack(children: [
       Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(22),
@@ -202,9 +216,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.28),
+                  color: Colors.black.withValues(alpha: 0.28),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withOpacity(0.18))),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.18))),
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.menu_book_outlined, color: kWhite, size: 14),
                 SizedBox(width: 6),
@@ -245,7 +259,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       color: kWhite,
       borderRadius: BorderRadius.circular(22),
       border: Border.all(color: kBorder),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 24, offset: const Offset(0, 8))],
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 8))],
     ),
     child: Column(children: [
       Container(
@@ -271,7 +285,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   );
 
   // ── Overview Tab ──────────────────────────────────────────────────
-  Widget _buildOverviewTab() => Padding(
+    Widget _buildOverviewTab() => Padding(
     padding: const EdgeInsets.all(14),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _PanelHeader(title: 'Recent completions', actionLabel: 'View transcript', onAction: () => _switchTab(1)),
@@ -295,9 +309,24 @@ class _DashboardScreenState extends State<DashboardScreen>
       const SizedBox(height: 8),
       _ActionCard(icon: Icons.receipt_long_outlined, title: 'Check orders',     subtitle: 'Track payment and status',      onTap: () => _switchTab(2)),
       const SizedBox(height: 8),
+      _ActionCard(
+        icon: Icons.info_outline,
+        title: 'How It Works',
+        subtitle: 'See the step-by-step NMLS process',
+        onTap: _goToHowItWorks,
+      ),
+      const SizedBox(height: 8),
+      _ActionCard(
+        icon: Icons.business_outlined,
+        title: 'About Relstone',
+        subtitle: 'Learn more about Relstone',
+        onTap: _goToAboutRelstone,
+      ),
+      const SizedBox(height: 8),
       _ActionCard(icon: Icons.person_outline,        title: 'My Profile',       subtitle: 'View account info & sign out',  onTap: () => _showProfileSheet()),
+      const SizedBox(height: 8),
     ]),
-  );
+    );
 
   void _showProfileSheet() {
     showModalBottomSheet(
@@ -308,6 +337,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         userName: _userName, userEmail: _userEmail,
         nmlsId: _nmlsId, state: _state, initial: _initial,
         onSignOut: () { Navigator.of(context).pop(); Navigator.of(context).pop(); },
+        onHowItWorks: () {
+          Navigator.of(context).pop();
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => HowItWorksScreen()));
+        },
       ),
     );
   }
@@ -442,9 +475,10 @@ class _DashboardScreenState extends State<DashboardScreen>
 class _ProfileSheet extends StatelessWidget {
   final String userName, userEmail, nmlsId, state, initial;
   final VoidCallback onSignOut;
+  final VoidCallback onHowItWorks;
   const _ProfileSheet({required this.userName, required this.userEmail,
       required this.nmlsId, required this.state, required this.initial,
-      required this.onSignOut});
+      required this.onSignOut, required this.onHowItWorks});
 
   @override
   Widget build(BuildContext context) {
@@ -486,6 +520,15 @@ class _ProfileSheet extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             child: const Text('Sign Out', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)))),
+        const SizedBox(height: 8),
+        SizedBox(width: double.infinity,
+          child: OutlinedButton(
+            onPressed: onHowItWorks,
+            style: OutlinedButton.styleFrom(foregroundColor: kBlue,
+                side: const BorderSide(color: kBlue),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: const Text('How It Works', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)))),
         const SizedBox(height: 8),
       ]),
     );
@@ -604,7 +647,7 @@ class _OrderCard extends StatelessWidget {
       final d = DateTime.parse(iso).toLocal();
       const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       return '${m[d.month-1]} ${d.day}, ${d.year}';
-    } catch (_) { return iso ?? '-'; }
+    } catch (_) { return iso; }
   }
 
   Color _statusColor(String s) {
@@ -641,7 +684,7 @@ class _OrderCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(18),
           border: Border.all(color: kBorder),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))]),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
 
         Padding(padding: const EdgeInsets.all(14), child: Row(children: [
@@ -750,7 +793,7 @@ class _TabBtn extends StatelessWidget {
         color: kWhite,
         borderRadius: BorderRadius.circular(99),
         border: Border.all(color: active ? kBlueBorder : kBorder),
-        boxShadow: active ? [BoxShadow(color: kBlue.withOpacity(0.18), blurRadius: 12, spreadRadius: 2)] : null,
+        boxShadow: active ? [BoxShadow(color: kBlue.withValues(alpha: 0.18), blurRadius: 12, spreadRadius: 2)] : null,
       ),
       child: Text(label, style: TextStyle(
           fontSize: 13, fontWeight: FontWeight.w900,
@@ -815,9 +858,9 @@ class _ProfileChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.12),
+      color: Colors.white.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(99),
-      border: Border.all(color: Colors.white.withOpacity(0.16)),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
     ),
     child: Row(mainAxisSize: MainAxisSize.min, children: [
       Icon(icon, color: kBlue, size: 13), const SizedBox(width: 6),
@@ -835,15 +878,15 @@ class _KpiCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.10),
+      color: Colors.white.withValues(alpha: 0.10),
       borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: Colors.white.withOpacity(0.18)),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(width: 34, height: 34,
           decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.12),
-              border: Border.all(color: Colors.white.withOpacity(0.14)),
+              color: Colors.white.withValues(alpha: 0.12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
               borderRadius: BorderRadius.circular(12)),
           child: Icon(icon, color: kWhite, size: 16)),
       const SizedBox(height: 8),
@@ -920,8 +963,10 @@ class _GlowPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()
       ..shader = RadialGradient(center: const Alignment(-0.6, -0.5), radius: 1.2,
-          colors: [kBlue.withOpacity(0.18), Colors.transparent])
+          colors: [kBlue.withValues(alpha: 0.18), Colors.transparent])
           .createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
   }
   @override bool shouldRepaint(_) => false;
 }
+
+
