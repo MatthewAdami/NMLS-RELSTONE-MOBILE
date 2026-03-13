@@ -7,7 +7,6 @@ import 'config/api_config.dart';
 import 'dashboard_screen.dart';
 import 'sign_up_screen.dart';
 
-
 // ─── Theme Constants ─────────────────────────────────────────────────
 const kRed = Color(0xFFC0392B);
 const kRedDark = Color(0xFF922B21);
@@ -19,8 +18,6 @@ const kGrey = Color(0xFF888888);
 const kGreyLight = Color(0xFFF5F5F0);
 const kGreyBorder = Color(0xFFE2E2E2);
 const kWhite = Colors.white;
-
-
 
 // ─── Login Screen ─────────────────────────────────────────────────────
 class LoginScreen extends StatefulWidget {
@@ -35,33 +32,45 @@ class _LoginScreenState extends State<LoginScreen> {
   String _error = '';
 
   Future<void> _login() async {
-    setState(() { _isLoading = true; _error = ''; });
+    setState(() {
+      _isLoading = true;
+      _error = '';
+    });
 
     try {
-      final response = await http.post(
-        Uri.parse(ApiConfig.login),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': _emailController.text,
-          'password': _passwordController.text,
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse(ApiConfig.login),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'email': _emailController.text,
+              'password': _passwordController.text,
+            }),
+          )
+          .timeout(Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => DashboardScreen(user: data['user'], token: data['token']),
+            builder: (_) =>
+                DashboardScreen(user: data['user'], token: data['token']),
           ),
         );
       } else {
-        setState(() { _error = 'Invalid email or password.'; });
+        setState(() {
+          _error = 'Invalid email or password.';
+        });
       }
     } catch (e) {
-      setState(() { _error = 'Connection failed. Please try again.'; });
+      setState(() {
+        _error = 'Connection failed. Please try again.';
+      });
     } finally {
-      setState(() { _isLoading = false; });
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -144,9 +153,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Row(
                       children: [
                         _statItem('50+', 'States'),
-                        Container(width: 1, height: 32, color: Colors.white.withOpacity(0.15)),
+                        Container(
+                          width: 1,
+                          height: 32,
+                          color: Colors.white.withOpacity(0.15),
+                        ),
                         _statItem('10k+', 'Students'),
-                        Container(width: 1, height: 32, color: Colors.white.withOpacity(0.15)),
+                        Container(
+                          width: 1,
+                          height: 32,
+                          color: Colors.white.withOpacity(0.15),
+                        ),
                         _statItem('100%', 'NMLS'),
                       ],
                     ),
@@ -174,28 +191,38 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Welcome Back',
-                        style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: kDark)),
+                    Text(
+                      'Welcome Back',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: kDark,
+                      ),
+                    ),
                     SizedBox(height: 4),
-                    Text('Sign in to your student account',
-                        style: TextStyle(fontSize: 13, color: kGrey)),
+                    Text(
+                      'Sign in to your student account',
+                      style: TextStyle(fontSize: 13, color: kGrey),
+                    ),
                     SizedBox(height: 24),
 
                     // Error box
                     if (_error.isNotEmpty) ...[
                       Container(
                         width: double.infinity,
-                        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: kRedLight,
                           border: Border.all(color: kRedBorder),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(_error,
-                            style: TextStyle(color: kRed, fontSize: 13)),
+                        child: Text(
+                          _error,
+                          style: TextStyle(color: kRed, fontSize: 13),
+                        ),
                       ),
                       SizedBox(height: 16),
                     ],
@@ -207,14 +234,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontSize: 14, color: kDark),
                       decoration: InputDecoration(
                         hintText: 'Email address',
-                        hintStyle: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
-                        prefixIcon: Icon(Icons.email_outlined, color: Color(0xFF999999), size: 18),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        hintStyle: TextStyle(
+                          color: Color(0xFFAAAAAA),
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.email_outlined,
+                          color: Color(0xFF999999),
+                          size: 18,
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         filled: true,
                         fillColor: Color(0xFFFAFAFA),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: kGreyBorder, width: 1.5),
+                          borderSide: BorderSide(
+                            color: kGreyBorder,
+                            width: 1.5,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -231,14 +271,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontSize: 14, color: kDark),
                       decoration: InputDecoration(
                         hintText: 'Password',
-                        hintStyle: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
-                        prefixIcon: Icon(Icons.lock_outline, color: Color(0xFF999999), size: 18),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        hintStyle: TextStyle(
+                          color: Color(0xFFAAAAAA),
+                          fontSize: 14,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.lock_outline,
+                          color: Color(0xFF999999),
+                          size: 18,
+                        ),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                         filled: true,
                         fillColor: Color(0xFFFAFAFA),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: kGreyBorder, width: 1.5),
+                          borderSide: BorderSide(
+                            color: kGreyBorder,
+                            width: 1.5,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -258,7 +311,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           disabledBackgroundColor: kRed.withOpacity(0.7),
                           padding: EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           elevation: 0,
                         ),
                         child: _isLoading
@@ -266,14 +320,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
-                                    color: kWhite, strokeWidth: 2),
+                                  color: kWhite,
+                                  strokeWidth: 2,
+                                ),
                               )
-                            : Text('Sign In →',
+                            : Text(
+                                'Sign In →',
                                 style: TextStyle(
-                                    color: kWhite,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.3)),
+                                  color: kWhite,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
                       ),
                     ),
                     SizedBox(height: 20),
@@ -281,13 +340,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Or divider
                     Row(
                       children: [
-                        Expanded(child: Divider(color: Color(0xFFEEEEEE), thickness: 1)),
+                        Expanded(
+                          child: Divider(
+                            color: Color(0xFFEEEEEE),
+                            thickness: 1,
+                          ),
+                        ),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: Text('or',
-                              style: TextStyle(color: Color(0xFFBBBBBB), fontSize: 12)),
+                          child: Text(
+                            'or',
+                            style: TextStyle(
+                              color: Color(0xFFBBBBBB),
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
-                        Expanded(child: Divider(color: Color(0xFFEEEEEE), thickness: 1)),
+                        Expanded(
+                          child: Divider(
+                            color: Color(0xFFEEEEEE),
+                            thickness: 1,
+                          ),
+                        ),
                       ],
                     ),
                     SizedBox(height: 20),
@@ -295,8 +369,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Register link
                     Center(
                       child: GestureDetector(
-                        onTap: () => Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => RegisterScreen())),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => RegisterScreen()),
+                        ),
                         child: RichText(
                           text: TextSpan(
                             style: TextStyle(fontSize: 14, color: kGrey),
@@ -305,7 +381,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               TextSpan(
                                 text: 'Create one here',
                                 style: TextStyle(
-                                    color: kRed, fontWeight: FontWeight.w600),
+                                  color: kRed,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
@@ -320,9 +398,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         'By signing in you agree to Relstone\'s\nTerms of Service and Privacy Policy.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFFBBBBBB),
-                            height: 1.6),
+                          fontSize: 11,
+                          color: Color(0xFFBBBBBB),
+                          height: 1.6,
+                        ),
                       ),
                     ),
                   ],
@@ -339,15 +418,23 @@ class _LoginScreenState extends State<LoginScreen> {
     return Expanded(
       child: Column(
         children: [
-          Text(value,
-              style: TextStyle(
-                  color: kWhite, fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(
+            value,
+            style: TextStyle(
+              color: kWhite,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           SizedBox(height: 2),
-          Text(label,
-              style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 10,
-                  letterSpacing: 0.3)),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 10,
+              letterSpacing: 0.3,
+            ),
+          ),
         ],
       ),
     );

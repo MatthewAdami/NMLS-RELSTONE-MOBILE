@@ -10,25 +10,62 @@ class StatesScreen extends StatefulWidget {
 class _StatesScreenState extends State<StatesScreen> {
   // ── Brand colors ──────────────────────────────────────────
   static const Color primaryNavy = Color(0xFF1A3A5C);
-  static const Color accentBlue = Color(0xFF2E7EBE);
   static const Color navBg = Color(0xFF0B1A2A);
   static const Color cardBg = Color(0xFF132030);
   static const Color cardBorder = Color(0xFF1E3448);
-  static const Color textLight = Colors.white;
-  static const Color textMuted = Color(0xFF6B7E92);
 
   // ── All US states ─────────────────────────────────────────
   static const List<String> _states = [
-    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
-    'Colorado', 'Connecticut', 'Delaware', 'District of Columbia', 'Florida',
-    'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana',
-    'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine',
-    'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi',
-    'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
-    'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota',
-    'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island',
-    'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah',
-    'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin',
+    'Alabama',
+    'Alaska',
+    'Arizona',
+    'Arkansas',
+    'California',
+    'Colorado',
+    'Connecticut',
+    'Delaware',
+    'District of Columbia',
+    'Florida',
+    'Georgia',
+    'Hawaii',
+    'Idaho',
+    'Illinois',
+    'Indiana',
+    'Iowa',
+    'Kansas',
+    'Kentucky',
+    'Louisiana',
+    'Maine',
+    'Maryland',
+    'Massachusetts',
+    'Michigan',
+    'Minnesota',
+    'Mississippi',
+    'Missouri',
+    'Montana',
+    'Nebraska',
+    'Nevada',
+    'New Hampshire',
+    'New Jersey',
+    'New Mexico',
+    'New York',
+    'North Carolina',
+    'North Dakota',
+    'Ohio',
+    'Oklahoma',
+    'Oregon',
+    'Pennsylvania',
+    'Rhode Island',
+    'South Carolina',
+    'South Dakota',
+    'Tennessee',
+    'Texas',
+    'Utah',
+    'Vermont',
+    'Virginia',
+    'Washington',
+    'West Virginia',
+    'Wisconsin',
     'Wyoming',
   ];
 
@@ -69,8 +106,11 @@ class _StatesScreenState extends State<StatesScreen> {
         backgroundColor: navBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.white, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
@@ -141,14 +181,21 @@ class _StatesScreenState extends State<StatesScreen> {
                     decoration: InputDecoration(
                       hintText: 'Search states...',
                       hintStyle: TextStyle(
-                          color: Colors.white.withOpacity(0.3), fontSize: 14),
-                      prefixIcon: Icon(Icons.search_rounded,
-                          color: Colors.white.withOpacity(0.4), size: 20),
+                        color: Colors.white.withOpacity(0.3),
+                        fontSize: 14,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        color: Colors.white.withOpacity(0.4),
+                        size: 20,
+                      ),
                       suffixIcon: _search.isNotEmpty
                           ? IconButton(
-                              icon: Icon(Icons.close_rounded,
-                                  color: Colors.white.withOpacity(0.4),
-                                  size: 18),
+                              icon: Icon(
+                                Icons.close_rounded,
+                                color: Colors.white.withOpacity(0.4),
+                                size: 18,
+                              ),
                               onPressed: () {
                                 _searchController.clear();
                                 setState(() => _search = '');
@@ -157,7 +204,9 @@ class _StatesScreenState extends State<StatesScreen> {
                           : null,
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -173,13 +222,15 @@ class _StatesScreenState extends State<StatesScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.location_off_rounded,
-                            color: Colors.white24, size: 40),
+                        Icon(
+                          Icons.location_off_rounded,
+                          color: Colors.white24,
+                          size: 40,
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           'No states found for "$_search"',
-                          style: TextStyle(
-                              color: Colors.white38, fontSize: 14),
+                          style: TextStyle(color: Colors.white38, fontSize: 14),
                         ),
                       ],
                     ),
@@ -188,11 +239,11 @@ class _StatesScreenState extends State<StatesScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      childAspectRatio: 2.4,
-                    ),
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          childAspectRatio: 2.4,
+                        ),
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
                       final state = filtered[index];
@@ -234,14 +285,10 @@ class _StateCellState extends State<_StateCell> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         decoration: BoxDecoration(
-          color: _pressed
-              ? const Color(0xFF1E3A5C)
-              : const Color(0xFF132030),
+          color: _pressed ? const Color(0xFF1E3A5C) : const Color(0xFF132030),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: _pressed
-                ? const Color(0xFF2E7EBE)
-                : const Color(0xFF1E3448),
+            color: _pressed ? const Color(0xFF2E7EBE) : const Color(0xFF1E3448),
             width: _pressed ? 1.5 : 1,
           ),
         ),
@@ -256,8 +303,7 @@ class _StateCellState extends State<_StateCell> {
               style: TextStyle(
                 color: _pressed ? Colors.white : Colors.white70,
                 fontSize: 12,
-                fontWeight:
-                    _pressed ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: _pressed ? FontWeight.w700 : FontWeight.w500,
                 height: 1.3,
               ),
             ),
