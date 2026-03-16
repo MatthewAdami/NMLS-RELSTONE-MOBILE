@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
 import 'package:nmls_mobile/courses_screen.dart';
+import 'package:nmls_mobile/states_screen.dart';
 
 // â”€â”€â”€ Theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const kDark = Color(0xFF091925);
@@ -24,7 +25,7 @@ const kSurface = Color(0xD0FFFFFF);
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic>? user;
   final String? token;
-  const DashboardScreen({Key? key, this.user, this.token}) : super(key: key);
+  const DashboardScreen({super.key, this.user, this.token});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -144,6 +145,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _goToCourses() => Navigator.of(
     context,
   ).push(MaterialPageRoute(builder: (_) => CoursesScreen(token: widget.token)));
+
+  void _goToStateRequirements() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const StatesScreen()));
 
   void _switchTab(int t) {
     if (t == _tab) return;
@@ -499,6 +504,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           title: 'Check orders',
           subtitle: 'Track payment and status',
           onTap: () => _switchTab(2),
+        ),
+        const SizedBox(height: 8),
+        _ActionCard(
+          icon: Icons.map_outlined,
+          title: 'State requirements',
+          subtitle: 'View licensing and CE rules',
+          onTap: _goToStateRequirements,
         ),
         const SizedBox(height: 8),
         _ActionCard(

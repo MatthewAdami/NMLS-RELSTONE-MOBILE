@@ -30,4 +30,8 @@ class ApiConfig {
   static String get resetPassword => '$baseUrl$apiPrefix/auth/reset-password';
   static String get resendCode => '$baseUrl$apiPrefix/auth/resend-code';
   static String get health => '$baseUrl$apiPrefix/health';
+  static String get stateRequirements =>
+      '$baseUrl$apiPrefix/states/requirements';
+  static String stateRequirementDetail(String stateCode) =>
+      '$baseUrl$apiPrefix/states/requirements/${stateCode.toUpperCase()}';
 }
