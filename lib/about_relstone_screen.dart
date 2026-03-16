@@ -24,113 +24,233 @@ class AboutRelstonePage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top Section: Badge, Headline, Subheading, Feature Tags
+              // Redesigned Top Section: Badge, Headline, Subheading, Feature Tags
               Container(
                 decoration: BoxDecoration(
-                  color: cardBg,
+                  gradient: LinearGradient(
+                    colors: [darkBlue, Colors.black],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 12)],
                 ),
-                padding: EdgeInsets.all(20),
-                margin: EdgeInsets.only(bottom: 24),
+                padding: EdgeInsets.all(28),
+                margin: EdgeInsets.only(bottom: 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Badge
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: lightBlue,
+                        color: Colors.transparent,
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: lightBlue, width: 2),
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
                       ),
-                      child: Text('NMLS-Approved Education Provider', style: TextStyle(color: cardBg, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        'NMLS-Approved Education Provider',
+                        style: TextStyle(
+                          color: lightBlue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
-                    SizedBox(height: 16),
+                    SizedBox(height: 24),
                     // Headline
-                    Text('Your Path to Mortgage Licensure', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textDark)),
-                    SizedBox(height: 8),
+                    Text(
+                      'Your Path to Mortgage Licensure.',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: cardBg,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    SizedBox(height: 12),
                     // Subheading
-                    Text('Join thousands of successful professionals who chose Relstone for their mortgage licensing education.', style: TextStyle(fontSize: 16, color: textDark)),
-                    SizedBox(height: 16),
+                    Text(
+                      'Relstone delivers NMLS-Approved pre-licensing and continuing education courses built for mortgage professionals. Study at your own pace, stay compliant, and earn your certificates.',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: lightBlue,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.2,
+                      ),
+                      textAlign: TextAlign.justify,
+                    ),
+                    SizedBox(height: 20),
                     // Feature Tags
                     Wrap(
-                      spacing: 8,
+                      spacing: 12,
                       runSpacing: 8,
                       children: [
-                        _featureTag('SAFE Act Compliant', lightBlue, cardBg),
-                        _featureTag('50+ States Approved', lightBlue, cardBg),
-                        _featureTag('Instant Certificates', lightBlue, cardBg),
+                        _featureTag('SAFE Act Compliant', Colors.transparent, lightBlue, borderColor: lightBlue),
+                        _featureTag('50+ States Approved', Colors.transparent, lightBlue, borderColor: lightBlue),
+                        _featureTag('Instant Certificates', Colors.transparent, lightBlue, borderColor: lightBlue),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              // Platform Overview
-              _sectionCard(
-                cardBg,
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('PLATFORM OVERVIEW', style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 14)),
-                    SizedBox(height: 8),
-                    _platformOverviewItem(Icons.computer, 'Online Self-Study (OES)'),
-                    _platformOverviewItem(Icons.devices, '24/7 — Any Device'),
-                    _platformOverviewItem(Icons.school, '20-Hour SAFE Act PE Course'),
-                    _platformOverviewItem(Icons.update, '8-Hour Annual CE Renewal'),
-                    _platformOverviewItem(Icons.verified, 'Issued Instantly on Completion'),
-                  ],
-                ),
-              ),
-              SizedBox(height: 24),
-              // Mission, Story, Team
-              _sectionCard(
-                cardAltBg,
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Mission, Story, and the Team Behind ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textDark)),
-                    RichText(
-                      text: TextSpan(
-                        text: 'Relstone.',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textLight),
+                    SizedBox(height: 24),
+                    // Platform Overview (now inside the main card, under Instant Certificates)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: lightBlue, width: 2),
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                      ),
+                      padding: EdgeInsets.all(20),
+                      constraints: BoxConstraints(
+                        minWidth: 0,
+                        maxWidth: 400,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          TextSpan(
-                            text: '\nRelstone was built to make mortgage licensing education more reliable, less fragmented, and more supportive for professionals balancing work and certification requirements. Our mission is simple: give learners a compliant, high-clarity path from first enrollment to long-term license renewal, with real instructional support along the way.',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal, color: textDark),
-                          ),
+                          Text('PLATFORM OVERVIEW', style: TextStyle(color: lightBlue, fontWeight: FontWeight.bold, fontSize: 14)),
+                          SizedBox(height: 12),
+                          ...[
+                            _platformOverviewRowFixed(Icons.computer, 'Online Self-Study (OES)', cardBg),
+                            _platformOverviewRowFixed(Icons.devices, '24/7 — Any Device', cardBg),
+                            _platformOverviewRowFixed(Icons.school, '20-Hour SAFE Act PE Course', cardBg),
+                            _platformOverviewRowFixed(Icons.update, '8-Hour Annual CE Renewal', cardBg),
+                            _platformOverviewRowFixed(Icons.verified, 'Issued Instantly on Completion', cardBg),
+                          ],
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
-              SizedBox(height: 24),
-              // Stats Cards Responsive
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  bool isMobile = constraints.maxWidth < 600;
-                  double cardWidth = isMobile ? double.infinity : 220;
-                  double cardHeight = 180; // Set consistent height for all cards
-                  return isMobile
-                      ? Column(
-                          children: [
-                            _statsCard('50 States', 'NMLS-approved education tracks with broad state readiness and elective support where required.', cardBg, textDark, width: cardWidth, height: cardHeight),
-                            SizedBox(height: 8),
-                            _statsCard('94%', 'Practice quizzes, exam prep checkpoints, and progress coaching designed around outcomes.', cardBg, textDark, subtitle: 'FIRST-TRY PASS RATE', width: cardWidth, height: cardHeight),
-                            SizedBox(height: 8),
-                            _statsCard('24/7', 'Student help, course guidance, and technical assistance available when learners actually need it.', cardBg, textDark, subtitle: 'LEARNER SUPPORT', width: cardWidth, height: cardHeight),
-                          ],
-                        )
-                      : Row(
-                          children: [
-                            Expanded(child: _statsCard('50 States', 'NMLS-approved education tracks with broad state readiness and elective support where required.', cardBg, textDark, width: cardWidth, height: cardHeight)),
-                            SizedBox(width: 8),
-                            Expanded(child: _statsCard('94%', 'Practice quizzes, exam prep checkpoints, and progress coaching designed around outcomes.', cardBg, textDark, subtitle: 'FIRST-TRY PASS RATE', width: cardWidth, height: cardHeight)),
-                            SizedBox(width: 8),
-                            Expanded(child: _statsCard('24/7', 'Student help, course guidance, and technical assistance available when learners actually need it.', cardBg, textDark, subtitle: 'LEARNER SUPPORT', width: cardWidth, height: cardHeight)),
-                          ],
-                        );
-                },
+              // Mission, Story, Team
+              Container(
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 16)],
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 36),
+                margin: EdgeInsets.only(bottom: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Section Title
+                    Text('ABOUT RELSTONE', style: TextStyle(
+                      color: lightBlue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      letterSpacing: 1.2,
+                    )),
+                    SizedBox(height: 18),
+                    // Headline
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Mission, Story, and the Team Behind ',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: textDark,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'Relstone.',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: lightBlue,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    // Description
+                    Text(
+                      'Relstone was built to make mortgage licensing education more reliable, less fragmented, and more supportive for professionals balancing work and certification requirements.',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: textDark,
+                        fontWeight: FontWeight.w500,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.justify,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Our mission is simple: give learners a compliant, high-clarity path from first enrollment to long-term license renewal, with real instructional support along the way.',
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: textDark,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.justify,
+                    ),
+                    SizedBox(height: 32),
+                    // Stats Cards inside Mission Card
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        bool isMobile = constraints.maxWidth < 600;
+                        double cardWidth = isMobile ? double.infinity : 320;
+                        Widget statsCard(String title, String subtitle, String desc, {double? width}) {
+                          return Container(
+                            width: width,
+                            decoration: BoxDecoration(
+                              color: cardBg,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: lightBlue, width: 1),
+                              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                            ),
+                            padding: EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                Text(title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textDark)),
+                                Text(subtitle, style: TextStyle(fontSize: 13, color: lightBlue, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                                SizedBox(height: 8),
+                                Text(desc, style: TextStyle(fontSize: 14, color: textDark), softWrap: true),
+                              ],
+                            ),
+                          );
+                        }
+                        if (isMobile) {
+                          return Column(
+                            children: [
+                              statsCard('50 States', 'COVERAGE', 'NMLS-approved education tracks with broad state readiness and elective support where required.', width: cardWidth),
+                              SizedBox(height: 12),
+                              statsCard('94%', 'FIRST-TRY PASS RATE', 'Practice quizzes, exam prep checkpoints, and progress coaching designed around outcomes.', width: cardWidth),
+                              SizedBox(height: 12),
+                              statsCard('24/7', 'LEARNER SUPPORT', 'Student help, course guidance, and technical assistance available when learners actually need it.', width: cardWidth),
+                            ],
+                          );
+                        } else {
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                statsCard('50 States', 'COVERAGE', 'NMLS-approved education tracks with broad state readiness and elective support where required.', width: cardWidth),
+                                SizedBox(width: 12),
+                                statsCard('94%', 'FIRST-TRY PASS RATE', 'Practice quizzes, exam prep checkpoints, and progress coaching designed around outcomes.', width: cardWidth),
+                                SizedBox(width: 12),
+                                statsCard('24/7', 'LEARNER SUPPORT', 'Student help, course guidance, and technical assistance available when learners actually need it.', width: cardWidth),
+                              ],
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
               SizedBox(height: 24),
               // Instructor and Leadership Team
@@ -139,52 +259,118 @@ class AboutRelstonePage extends StatelessWidget {
               LayoutBuilder(
                 builder: (context, constraints) {
                   bool isMobile = constraints.maxWidth < 600;
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _teamCard('Photo', 'Mr. Adrian Zubia', 'PRESIDENT / CEO / DIRECTOR', 'Holds ultimate responsibility for the leadership and strategic direction of REL, overseeing program development, financial management, and compliance with state and federal regulations.', cardBg, textDark, isMobile),
-                      _teamCard('Photo', 'Ms. Amina Ahmed', 'SCHOOL ADMINISTRATOR', 'Oversees student services, ensures smooth delivery of educational programs, and maintains compliance with accreditation standards. Manages course scheduling, student progress, and instructor leadership.', cardBg, textDark, isMobile),
-                      _teamCard('Photo', 'Ms. Rosa Peralta', 'OFFICE ADMINISTRATOR', 'Manages student enrollment, student account records, and ensures all courses meet accreditation and certification standards. Facilitates communication between instructors and students.', cardBg, textDark, isMobile),
-                      _teamCard('Photo', 'Mr. Dean Clayton', 'MARKETING DIRECTOR', 'Develops and implements strategic marketing initiatives to increase brand awareness, student enrollment, and digital campaigns and promotional strategies.', cardBg, textDark, isMobile),
-                    ],
-                  );
+                  final team = [
+                    {
+                      'photo': 'Photo',
+                      'name': 'Mr. Adrian Zubia',
+                      'role': 'PRESIDENT / CEO / DIRECTOR',
+                      'desc': 'Holds ultimate responsibility for the leadership and strategic direction of REL, overseeing program development, financial management, and compliance with state and federal regulations.'
+                    },
+                    {
+                      'photo': 'Photo',
+                      'name': 'Ms. Amina Ahmed',
+                      'role': 'SCHOOL ADMINISTRATOR',
+                      'desc': 'Oversees student services, ensures smooth delivery of educational programs, and maintains compliance with accreditation standards. Manages course scheduling, student progress, and instructor leadership.'
+                    },
+                    {
+                      'photo': 'Photo',
+                      'name': 'Ms. Rosa Peralta',
+                      'role': 'OFFICE ADMINISTRATOR',
+                      'desc': 'Manages student enrollment, student account records, and ensures all courses meet accreditation and certification standards. Facilitates communication between instructors and students.'
+                    },
+                    {
+                      'photo': 'Photo',
+                      'name': 'Mr. Dean Clayton',
+                      'role': 'MARKETING DIRECTOR',
+                      'desc': 'Develops and implements strategic marketing initiatives to increase brand awareness, student enrollment, and digital campaigns and promotional strategies.'
+                    },
+                  ];
+                  List<Widget> teamCards = team.map((member) => _teamCard(
+                    member['photo']!,
+                    member['name']!,
+                    member['role']!,
+                    member['desc']!,
+                    cardBg,
+                    textDark,
+                    isMobile,
+                    null,
+                    null
+                  )).toList();
+                  if (isMobile) {
+                    return Column(
+                      children: teamCards.map((card) => Padding(padding: EdgeInsets.only(bottom: 8), child: card)).toList(),
+                    );
+                  } else {
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: teamCards.map((card) => Container(
+                          width: 320,
+                          constraints: BoxConstraints(maxWidth: 320),
+                          child: card,
+                        )).toList(),
+                      ),
+                    );
+                  }
                 },
               ),
               SizedBox(height: 24),
               // State Approvals & Accreditations
-              Text('State Approvals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark)),
-              SizedBox(height: 8),
               _sectionCard(
                 cardBg,
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // State Approvals Title inside the card
+                    Text('State Approvals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark)),
+                    SizedBox(height: 8),
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        ...['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming'].map((state) => Chip(label: Text(state, style: TextStyle(color: textDark)), backgroundColor: cardAltBg)).toList(),
+                        ...['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming'].map((state) => Container(
+                          margin: EdgeInsets.only(bottom: 4),
+                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: cardAltBg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: lightBlue, width: 1),
+                          ),
+                          child: Text(state, style: TextStyle(color: textDark)),
+                        )).toList(),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 16),
-              _sectionCard(
-                cardBg,
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Accreditations and Standards', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark)),
-                    SizedBox(height: 8),
-                    ...['NMLS-approved course provider','SAFE Act aligned curriculum standards','8xSig-ID identity verification enabled','ROCS V4 rules of conduct workflow','7-day credit banking operations'].map((item) => Row(
-                      children: [
-                        Icon(Icons.check_circle, color: lightBlue, size: 18),
-                        SizedBox(width: 6),
-                        Text(item, style: TextStyle(color: textDark)),
-                      ],
-                    )).toList(),
+                    SizedBox(height: 16),
+                    // Accreditations and Standards Card inside State Approvals Card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: cardAltBg,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                      ),
+                      padding: EdgeInsets.all(20),
+                      margin: EdgeInsets.only(top: 8),
+                      // Remove any fixed height, let content determine height
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Accreditations and Standards', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark)),
+                          SizedBox(height: 8),
+                          ...['NMLS-approved course provider','SAFE Act aligned curriculum standards','8xSig-ID identity verification enabled','ROCS V4 rules of conduct workflow','7-day credit banking operations'].map((item) => Padding(
+                            padding: EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.check_circle, color: lightBlue, size: 18),
+                                SizedBox(width: 6),
+                                Expanded(child: Text(item, style: TextStyle(color: textDark))),
+                              ],
+                            ),
+                          )).toList(),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -209,27 +395,51 @@ class AboutRelstonePage extends StatelessWidget {
               ),
               SizedBox(height: 24),
               // About the Platform
-              _sectionCard(
-                cardAltBg,
-                Column(
+              Container(
+                decoration: BoxDecoration(
+                  color: cardBg, // Solid white background
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 16)],
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 36),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('ABOUT THE PLATFORM', style: TextStyle(color: textLight, fontWeight: FontWeight.bold, fontSize: 14)),
-                    SizedBox(height: 8),
+                    Text('ABOUT THE PLATFORM', style: TextStyle(color: darkBlue, fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 1.2)),
+                    SizedBox(height: 18),
                     RichText(
                       text: TextSpan(
-                        text: 'NMLS-Approved Education\n',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textDark),
                         children: [
                           TextSpan(
+                            text: 'NMLS-Approved Education\n',
+                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: darkBlue, letterSpacing: 0.5),
+                          ),
+                          TextSpan(
                             text: 'Built for Compliance.',
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textLight),
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: lightBlue, letterSpacing: 0.5),
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Text('Relstone is an NMLS-approved education provider offering fully online, self-paced mortgage licensing courses. Our platform is designed to meet every technical requirement set by the SAFE Act and NMLS — from identity authentication to time tracking and module sequencing.\n\nWhether you\'re a first-time MLO applicant completing your 20-hour pre-licensing requirement or a licensed professional renewing with your annual 8-hour CE, Relstone has the course you need — available anytime, from any device.', style: TextStyle(fontSize: 16, color: textDark)),
+                    SizedBox(height: 18),
+                    // Justified text for description
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Relstone is an NMLS-approved education provider offering fully online, self-paced mortgage licensing courses. Our platform is designed to meet every technical requirement set by the SAFE Act and NMLS — from identity authentication to time tracking and module sequencing.',
+                        style: TextStyle(fontSize: 14, color: darkBlue, height: 1.5, fontWeight: FontWeight.w500),
+                        textAlign: TextAlign.justify,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Whether you\'re a first-time MLO applicant completing your 20-hour pre-licensing requirement or a licensed professional renewing with your annual 8-hour CE, Relstone has the course you need — available anytime, from any device.',
+                        style: TextStyle(fontSize: 14, color: darkBlue, height: 1.5),
+                        textAlign: TextAlign.justify,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -252,14 +462,58 @@ class AboutRelstonePage extends StatelessWidget {
     );
   }
 
-  Widget _platformOverviewItem(IconData icon, String text) {
+  Widget _platformOverviewItem(IconData icon, String text, Color iconColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         children: [
+          Icon(icon, color: lightBlue, size: 20), // Icon is now blue
+          SizedBox(width: 8),
+          Text(text, style: TextStyle(color: cardBg, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  Widget _platformOverviewRow(IconData icon, String text, Color iconColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Icon(icon, color: lightBlue, size: 20),
           SizedBox(width: 8),
-          Text(text, style: TextStyle(color: textDark, fontSize: 16)),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: cardBg, fontSize: 15),
+              softWrap: true,
+              overflow: TextOverflow.visible,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Add this helper below _platformOverviewRow
+  Widget _platformOverviewRowFixed(IconData icon, String text, Color iconColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: lightBlue, size: 20),
+          SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              text,
+              style: TextStyle(color: cardBg, fontSize: 14),
+              softWrap: true,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -290,21 +544,25 @@ class AboutRelstonePage extends StatelessWidget {
     );
   }
 
-  Widget _teamCard(String photo, String name, String role, String desc, Color bg, Color textColor, bool isMobile) {
+  Widget _teamCard(String photo, String name, String role, String desc, Color bg, Color textColor, bool isMobile, double? height, double? width) {
     return Container(
-      width: isMobile ? double.infinity : 220,
+      margin: EdgeInsets.only(right: isMobile ? 0 : 8),
       decoration: BoxDecoration(
-        color: bg,
+        gradient: LinearGradient(
+          colors: [darkBlue, Colors.black],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
       ),
       padding: EdgeInsets.all(16),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 80,
-            width: double.infinity,
+            height: 100,
+            width: 120,
             decoration: BoxDecoration(
               color: darkBlue,
               borderRadius: BorderRadius.circular(12),
@@ -313,11 +571,23 @@ class AboutRelstonePage extends StatelessWidget {
               child: Text(photo, style: TextStyle(color: lightBlue, fontSize: 22, fontWeight: FontWeight.bold)),
             ),
           ),
-          SizedBox(height: 8),
-          Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-          Text(role, style: TextStyle(color: lightBlue, fontWeight: FontWeight.bold)),
-          SizedBox(height: 8),
-          Text(desc, style: TextStyle(color: textColor, fontSize: 13)),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: cardBg)),
+                Text(role, style: TextStyle(color: lightBlue, fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                Text(
+                  desc,
+                  style: TextStyle(color: cardBg, fontSize: 13),
+                  softWrap: true,
+                  textAlign: TextAlign.justify,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -325,9 +595,13 @@ class AboutRelstonePage extends StatelessWidget {
 
   Widget _pressCard(String title, String desc, String year, Color bg, Color accent, Color textColor, bool isMobile) {
     return Container(
-      width: isMobile ? double.infinity : 220,
+      width: isMobile ? double.infinity : 320,
       decoration: BoxDecoration(
-        color: bg,
+        gradient: LinearGradient(
+          colors: [darkBlue, Colors.black],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
       ),
@@ -335,23 +609,34 @@ class AboutRelstonePage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(color: accent, fontWeight: FontWeight.bold)),
+          // Title in blue
+          Text(title, style: TextStyle(color: lightBlue, fontWeight: FontWeight.bold, fontSize: 18)),
           SizedBox(height: 8),
-          Text(desc, style: TextStyle(color: textColor)),
+          // Description in white
+          Text(desc, style: TextStyle(color: cardBg, fontSize: 15)),
           SizedBox(height: 8),
-          Text(year, style: TextStyle(color: accent, fontWeight: FontWeight.bold)),
+          // Year with blue border
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(32), // More rounded
+              border: Border.all(color: lightBlue, width: 2),
+            ),
+            child: Text(year, style: TextStyle(color: lightBlue, fontWeight: FontWeight.bold, fontSize: 15)),
+          ),
         ],
       ),
     );
   }
 
-  Widget _featureTag(String text, Color bg, Color textColor) {
+  Widget _featureTag(String text, Color bg, Color textColor, {Color? borderColor}) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: bg),
+        border: Border.all(color: borderColor ?? bg),
       ),
       child: Text(
         text,
@@ -365,3 +650,4 @@ class AboutRelstonePage extends StatelessWidget {
     );
   }
 }
+
