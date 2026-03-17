@@ -25,7 +25,7 @@ const kSurface     = Color(0xD0FFFFFF);
 
 class OrdersScreen extends StatefulWidget {
   final String? token;
-  const OrdersScreen({Key? key, this.token}) : super(key: key);
+  const OrdersScreen({super.key, this.token});
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
