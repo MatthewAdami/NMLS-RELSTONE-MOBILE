@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
+import 'package:nmls_mobile/course_detail_screen.dart';
 
 // ─── Theme constants (shared with dashboard_screen.dart) ──────────────
 const kDark = Color(0xFF091925);
@@ -93,6 +94,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
   List<Map<String, dynamic>> _courses = [];
   bool _loading = true;
   String _error = '';
+  bool _usingSampleCourses = false;
 
   // Filters
   final TextEditingController _searchCtrl = TextEditingController();
@@ -142,24 +144,100 @@ class _CoursesScreenState extends State<CoursesScreen> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data is List) {
+          final fetched = data
+              .map((e) => _decorateCourse(Map<String, dynamic>.from(e as Map)))
+              .toList();
           setState(() {
-            _courses = data
-                .map(
-                  (e) => _decorateCourse(Map<String, dynamic>.from(e as Map)),
-                )
-                .toList();
+            _courses = fetched.isEmpty
+                ? _sampleCourses().map(_decorateCourse).toList()
+                : fetched;
+            _usingSampleCourses = fetched.isEmpty;
+            _error = '';
+          });
+        } else {
+          setState(() {
+            _courses = _sampleCourses().map(_decorateCourse).toList();
+            _usingSampleCourses = true;
+            _error = '';
           });
         }
       } else {
-        setState(() => _error = 'Failed to load courses (${res.statusCode})');
+        setState(() {
+          _courses = _sampleCourses().map(_decorateCourse).toList();
+          _usingSampleCourses = true;
+          _error = '';
+        });
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Network error. Please retry.');
+      setState(() {
+        _courses = _sampleCourses().map(_decorateCourse).toList();
+        _usingSampleCourses = true;
+        _error = '';
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  List<Map<String, dynamic>> _sampleCourses() => [
+    {
+      '_id': 'demo-pe-01',
+      'title': 'NMLS 20-Hour SAFE Pre-Licensing',
+      'description':
+          'Complete the national pre-licensing curriculum with practical compliance examples.',
+      'price': 199,
+      'textbook_price': 39,
+      'has_textbook': true,
+      'credit_hours': 20,
+      'duration_hours': 20,
+      'type': 'PE',
+      'states_approved': ['AL', 'GA', 'FL'],
+      'modules': [
+        {'title': 'Federal Mortgage Law', 'hours': 3},
+        {'title': 'Ethics and Consumer Protection', 'hours': 3},
+        {'title': 'Non-Traditional Lending', 'hours': 2},
+        {'title': 'General Elective', 'hours': 12},
+      ],
+    },
+    {
+      '_id': 'demo-ce-01',
+      'title': '8-Hour NMLS Continuing Education (CE)',
+      'description':
+          'Stay compliant with annual CE updates, ethics refreshers, and lending standards.',
+      'price': 89,
+      'textbook_price': 0,
+      'has_textbook': false,
+      'credit_hours': 8,
+      'duration_hours': 8,
+      'type': 'CE',
+      'states_approved': ['AL', 'TN', 'NC', 'SC'],
+      'modules': [
+        {'title': 'Federal Law Update', 'hours': 3},
+        {'title': 'Ethics Refresher', 'hours': 2},
+        {'title': 'Non-Traditional Products', 'hours': 2},
+        {'title': 'State Elective', 'hours': 1},
+      ],
+    },
+    {
+      '_id': 'demo-exam-01',
+      'title': 'NMLS Exam Prep Bootcamp',
+      'description':
+          'Focused drills, exam strategy, and topic breakdowns to boost first-attempt pass rates.',
+      'price': 129,
+      'textbook_price': 25,
+      'has_textbook': true,
+      'credit_hours': 10,
+      'duration_hours': 10,
+      'type': 'Exam Prep',
+      'states_approved': ['AL'],
+      'modules': [
+        {'title': 'National Test Blueprint', 'hours': 2},
+        {'title': 'Scenario-Based Questions', 'hours': 3},
+        {'title': 'Practice Exams and Review', 'hours': 5},
+      ],
+    },
+  ];
 
   Map<String, dynamic> _decorateCourse(Map<String, dynamic> raw) {
     final course = {...raw};
@@ -180,8 +258,9 @@ class _CoursesScreenState extends State<CoursesScreen> {
 
     final badges = <String>[];
     if (popularity >= 85) badges.add('Bestseller');
-    if (((course['states_approved'] as List?) ?? []).isNotEmpty)
+    if (((course['states_approved'] as List?) ?? []).isNotEmpty) {
       badges.add('State Approved');
+    }
     if (hash % 4 == 0) badges.add('New');
 
     course['format'] = course['format'] ?? formats[hash % formats.length];
@@ -385,6 +464,24 @@ class _CoursesScreenState extends State<CoursesScreen> {
     });
   }
 
+  void _openCourseDetails(Map<String, dynamic> course) {
+    final id = course['_id'] as String? ?? '';
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CourseDetailScreen(
+          course: course,
+          inCart: _inCart(id),
+          onEnroll: () {
+            if (!_inCart(id)) {
+              _addToCart(course);
+              _snack('Added to cart');
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   void _removeFromCart(String id) =>
       setState(() => _cart = _cart.where((c) => c['_id'] != id).toList());
 
@@ -502,11 +599,11 @@ class _CoursesScreenState extends State<CoursesScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Course Catalog',
                   style: TextStyle(
                     fontSize: 16,
@@ -515,7 +612,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     letterSpacing: -0.2,
                   ),
                 ),
-                Text(
+                const Text(
                   'Pre-Licensing, Exam Prep, and CE catalog',
                   style: TextStyle(
                     fontSize: 11,
@@ -523,6 +620,15 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (_usingSampleCourses)
+                  const Text(
+                    'Demo data loaded (API returned no courses).',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: kBlue,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -983,6 +1089,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                         isExpanded: false,
                         compact: true,
                         onAddToCart: () => _addToCart(course),
+                        onOpenDetails: () => _openCourseDetails(course),
                         onToggleExpand: () {},
                       );
                     },
@@ -1008,6 +1115,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                       isExpanded: false,
                       compact: true,
                       onAddToCart: () => _addToCart(course),
+                      onOpenDetails: () => _openCourseDetails(course),
                       onToggleExpand: () {},
                     );
                   },
@@ -1027,6 +1135,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   isExpanded: _expanded.contains(id),
                   compact: false,
                   onAddToCart: () => _addToCart(course),
+                  onOpenDetails: () => _openCourseDetails(course),
                   onToggleExpand: () => setState(() {
                     _expanded.contains(id)
                         ? _expanded.remove(id)
@@ -1593,6 +1702,7 @@ class _CourseCard extends StatelessWidget {
   final bool isExpanded;
   final bool compact;
   final VoidCallback onAddToCart;
+  final VoidCallback onOpenDetails;
   final VoidCallback onToggleExpand;
 
   const _CourseCard({
@@ -1601,6 +1711,7 @@ class _CourseCard extends StatelessWidget {
     required this.isExpanded,
     this.compact = false,
     required this.onAddToCart,
+    required this.onOpenDetails,
     required this.onToggleExpand,
   });
 
@@ -1663,22 +1774,25 @@ class _CourseCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: compact ? 54 : 72,
-                      height: compact ? 54 : 72,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: kBorder),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0F2A3A), Color(0xFF2EABFE)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                    GestureDetector(
+                      onTap: onOpenDetails,
+                      child: Container(
+                        width: compact ? 54 : 72,
+                        height: compact ? 54 : 72,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: kBorder),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0F2A3A), Color(0xFF2EABFE)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                         ),
-                      ),
-                      child: const Icon(
-                        Icons.play_lesson_outlined,
-                        color: kWhite,
-                        size: 20,
+                        child: const Icon(
+                          Icons.play_lesson_outlined,
+                          color: kWhite,
+                          size: 20,
+                        ),
                       ),
                     ),
                     SizedBox(width: compact ? 8 : 10),
@@ -1686,16 +1800,19 @@ class _CourseCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: compact ? 13 : 14,
-                              fontWeight: FontWeight.w900,
-                              color: kDark,
-                              height: 1.2,
+                          GestureDetector(
+                            onTap: onOpenDetails,
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: compact ? 13 : 14,
+                                fontWeight: FontWeight.w900,
+                                color: kDark,
+                                height: 1.2,
+                              ),
+                              maxLines: compact ? 2 : 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: compact ? 2 : 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                           SizedBox(height: compact ? 2 : 4),
                           Text(
@@ -2002,6 +2119,31 @@ class _CourseCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (!compact) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: onOpenDetails,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: kWhite,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: kBorder),
+                      ),
+                      child: const Text(
+                        'View details',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: kDark,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
