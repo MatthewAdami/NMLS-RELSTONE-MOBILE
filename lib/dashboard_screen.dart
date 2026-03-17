@@ -5,6 +5,7 @@ import 'package:nmls_mobile/config/api_config.dart';
 import 'package:nmls_mobile/courses_screen.dart';
 import 'package:nmls_mobile/how_it_works_screen.dart';
 import 'package:nmls_mobile/about_relstone_screen.dart';
+import 'package:nmls_mobile/faq_screen.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -321,6 +322,17 @@ class _DashboardScreenState extends State<DashboardScreen>
         title: 'About Relstone',
         subtitle: 'Learn more about Relstone',
         onTap: _goToAboutRelstone,
+      ),
+      const SizedBox(height: 8),
+      _ActionCard(
+        icon: Icons.help_outline_rounded,
+        title: 'Help Center / FAQ',
+        subtitle: 'Get answers & support',
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const FaqScreen()),
+          );
+        },
       ),
       const SizedBox(height: 8),
       _ActionCard(icon: Icons.person_outline,        title: 'My Profile',       subtitle: 'View account info & sign out',  onTap: () => _showProfileSheet()),
