@@ -1,11 +1,13 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const { findCourseById } = require('../data/courses');
-const { addOrder, listOrdersByUser } = require('../data/order_store');
+const User = require('../models/User');
+const Order = require('../models/Order');
+const Enrollment = require('../models/Enrollment');
 
 const router = express.Router();
 
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   const items = Array.isArray(req.body?.items) ? req.body.items : [];
 
   if (items.length === 0) {
@@ -40,21 +42,63 @@ router.post('/', requireAuth, (req, res) => {
     return sum + Number(item.price || 0) + Number(item.textbook_price || 0);
   }, 0);
 
-  const order = {
-    _id: `ord_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
-    user_id: req.user.id,
-    status: 'pending',
-    total_amount: Number(totalAmount.toFixed(2)),
-    items: normalizedItems,
-    createdAt: new Date().toISOString(),
-  };
+  try {
+    const user = await User.findById(req.user.id).select('_id assigned_course_ids');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-  addOrder(order);
-  return res.status(201).json(order);
+    const order = await Order.create({
+      user_id: user._id,
+      status: 'pending',
+      total_amount: Number(totalAmount.toFixed(2)),
+      items: normalizedItems,
+    });
+
+    const purchasedCourseIds = normalizedItems
+      .map((item) => item.course_id?._id)
+      .filter(Boolean);
+
+    if (purchasedCourseIds.length > 0) {
+      await User.updateOne(
+        { _id: user._id },
+        { $addToSet: { assigned_course_ids: { $each: purchasedCourseIds } } }
+      );
+
+      await Promise.all(
+        purchasedCourseIds.map((courseId) =>
+          Enrollment.updateOne(
+            { user_id: user._id, course_id: courseId },
+            {
+              $setOnInsert: {
+                status: 'in_progress',
+                progress_percent: 0,
+                last_accessed_at: new Date(),
+              },
+            },
+            { upsert: true }
+          )
+        )
+      );
+    }
+
+    return res.status(201).json(order);
+  } catch (error) {
+    console.error('Orders create error:', error);
+    return res.status(500).json({ message: 'Server error creating order' });
+  }
 });
 
-router.get('/my', requireAuth, (req, res) => {
-  return res.status(200).json(listOrdersByUser(req.user.id));
+router.get('/my', requireAuth, async (req, res) => {
+  try {
+    const orders = await Order.find({ user_id: req.user.id })
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.status(200).json(orders);
+  } catch (error) {
+    console.error('Orders list error:', error);
+    return res.status(500).json({ message: 'Server error loading orders' });
+  }
 });
 
 module.exports = router;
