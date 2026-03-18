@@ -6,6 +6,7 @@ import 'package:nmls_mobile/courses_screen.dart';
 import 'package:nmls_mobile/how_it_works_screen.dart';
 import 'package:nmls_mobile/about_relstone_screen.dart';
 import 'package:nmls_mobile/faq_screen.dart';
+import 'contact_support_page.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -337,6 +338,23 @@ class _DashboardScreenState extends State<DashboardScreen>
       const SizedBox(height: 8),
       _ActionCard(icon: Icons.person_outline,        title: 'My Profile',       subtitle: 'View account info & sign out',  onTap: () => _showProfileSheet()),
       const SizedBox(height: 8),
+      // Contact Support button
+      _ActionCard(
+        icon: Icons.support_agent,
+        title: 'Contact Support',
+        subtitle: 'Get in touch with our team',
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ContactSupportPage(
+                userName: _userName ?? '',
+                userEmail: _userEmail ?? '',
+              ),
+            ),
+          );
+        },
+      ),
     ]),
     );
 
@@ -648,7 +666,7 @@ class _TranscriptRow extends StatelessWidget {
   }
 }
 
-// ─── Order Card ───────────────────────────────────────────────────────
+// ── Order Card ───────────────────────────────────────────────────────
 class _OrderCard extends StatelessWidget {
   final Map<String, dynamic> order;
   const _OrderCard({required this.order});
