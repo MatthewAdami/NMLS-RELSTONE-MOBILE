@@ -1,7 +1,9 @@
 const express = require('express');
 const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
-const { listOrdersByUser } = require('../data/order_store');
+const Order = require('../models/Order');
+const Enrollment = require('../models/Enrollment');
+const { findCourseById } = require('../data/courses');
 
 const router = express.Router();
 
@@ -12,22 +14,38 @@ router.get('/', requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const orders = listOrdersByUser(req.user.id);
+    const [orders, completedEnrollments] = await Promise.all([
+      Order.find({ user_id: req.user.id }).sort({ createdAt: -1 }).lean(),
+      Enrollment.find({ user_id: req.user.id, status: 'completed' })
+        .sort({ completed_at: -1 })
+        .lean(),
+    ]);
 
-    const completions = {
-      PE: [
-        {
-          course_title: 'SAFE Federal Core',
-          completed_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60).toISOString(),
-        },
-      ],
-      CE: [
-        {
-          course_title: 'Annual CE 8-Hour',
-          completed_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14).toISOString(),
-        },
-      ],
-    };
+    const completions = { PE: [], CE: [] };
+    for (const enrollment of completedEnrollments) {
+      const course = findCourseById(enrollment.course_id);
+      const courseSnapshot = {
+        _id: enrollment.course_id,
+        title: course?.title || enrollment.course_id,
+        type: course?.type || 'PE',
+        credit_hours: course?.credit_hours || 0,
+      };
+
+      const completionEntry = {
+        course_id: courseSnapshot,
+        completed_at:
+          enrollment.completed_at?.toISOString?.() ||
+          enrollment.completed_at ||
+          enrollment.updatedAt,
+        certificate_url: enrollment.certificate_url || null,
+      };
+
+      if (String(courseSnapshot.type).toUpperCase() === 'CE') {
+        completions.CE.push(completionEntry);
+      } else {
+        completions.PE.push(completionEntry);
+      }
+    }
 
     return res.status(200).json({
       profile: {

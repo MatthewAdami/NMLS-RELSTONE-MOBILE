@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
+import 'package:nmls_mobile/course_detail_screen.dart';
 
 // ─── Theme constants (shared with dashboard_screen.dart) ──────────────
 const kDark = Color(0xFF091925);
@@ -93,6 +94,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
   List<Map<String, dynamic>> _courses = [];
   bool _loading = true;
   String _error = '';
+  bool _usingSampleCourses = false;
 
   // Filters
   final TextEditingController _searchCtrl = TextEditingController();
@@ -100,6 +102,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
   String _stateFilter = 'All';
   String _courseTypeFilter = 'All';
   String _formatFilter = 'All';
+  String _myCoursesTab = 'In Progress';
   RangeValues _priceRange = const RangeValues(0, 250);
   RangeValues _durationRange = const RangeValues(1, 40);
   String _sortBy = 'Most Popular';
@@ -142,20 +145,35 @@ class _CoursesScreenState extends State<CoursesScreen> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data is List) {
+          final fetched = data
+              .map((e) => _decorateCourse(Map<String, dynamic>.from(e as Map)))
+              .toList();
           setState(() {
-            _courses = data
-                .map(
-                  (e) => _decorateCourse(Map<String, dynamic>.from(e as Map)),
-                )
-                .toList();
+            _courses = fetched;
+            _usingSampleCourses = false;
+            _error = '';
+          });
+        } else {
+          setState(() {
+            _courses = [];
+            _usingSampleCourses = false;
+            _error = 'Invalid courses response from server.';
           });
         }
       } else {
-        setState(() => _error = 'Failed to load courses (${res.statusCode})');
+        setState(() {
+          _courses = [];
+          _usingSampleCourses = false;
+          _error = 'Failed to load courses (${res.statusCode}).';
+        });
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Network error. Please retry.');
+      setState(() {
+        _courses = [];
+        _usingSampleCourses = false;
+        _error = 'Network error loading courses.';
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -180,8 +198,9 @@ class _CoursesScreenState extends State<CoursesScreen> {
 
     final badges = <String>[];
     if (popularity >= 85) badges.add('Bestseller');
-    if (((course['states_approved'] as List?) ?? []).isNotEmpty)
+    if (((course['states_approved'] as List?) ?? []).isNotEmpty) {
       badges.add('State Approved');
+    }
     if (hash % 4 == 0) badges.add('New');
 
     course['format'] = course['format'] ?? formats[hash % formats.length];
@@ -197,6 +216,25 @@ class _CoursesScreenState extends State<CoursesScreen> {
         course['created_at'] ??
         DateTime.now().subtract(Duration(days: hash % 240)).toIso8601String();
     course['catalog_type'] = _resolveCourseType(course);
+
+    // Enrollment metadata should come from backend persisted data.
+    final status = (course['enrollment_status'] ?? 'in_progress').toString();
+    final normalizedStatus = _normalizeEnrollmentStatus(status);
+    final computedProgress = normalizedStatus == 'completed'
+        ? 1.0
+        : normalizedStatus == 'wishlist'
+        ? 0.0
+        : 0.0;
+
+    course['enrollment_status'] = normalizedStatus;
+    course['progress_percent'] =
+        ((course['progress_percent'] as num?)?.toDouble() ?? computedProgress)
+            .clamp(0.0, 1.0);
+    course['last_accessed_at'] = course['last_accessed_at'];
+    if (normalizedStatus == 'completed') {
+      course['certificate_url'] =
+          course['certificate_url'] ?? '$_kApiBase/certificates/$id';
+    }
     course['badges'] = badges;
     return course;
   }
@@ -209,6 +247,25 @@ class _CoursesScreenState extends State<CoursesScreen> {
     if (raw == 'CE' || raw.contains('CONTINUING')) return 'CE';
     if (raw.contains('EXAM')) return 'Exam Prep';
     return 'Pre-Licensing';
+  }
+
+  String _normalizeEnrollmentStatus(String rawStatus) {
+    final value = rawStatus.trim().toLowerCase();
+    if (value == 'completed' || value == 'complete') return 'completed';
+    if (value == 'wishlist' || value == 'saved') return 'wishlist';
+    return 'in_progress';
+  }
+
+  bool _matchesSelectedTab(String status) {
+    switch (_myCoursesTab) {
+      case 'Completed':
+        return status == 'completed';
+      case 'Wishlist':
+        return status == 'wishlist';
+      case 'In Progress':
+      default:
+        return status == 'in_progress';
+    }
   }
 
   Future<void> _placeOrder() async {
@@ -306,12 +363,18 @@ class _CoursesScreenState extends State<CoursesScreen> {
       final matchesDuration =
           duration >= _durationRange.start && duration <= _durationRange.end;
 
+      final status = _normalizeEnrollmentStatus(
+        (c['enrollment_status'] ?? '').toString(),
+      );
+      final matchesTab = _matchesSelectedTab(status);
+
       return matchesSearch &&
           matchesType &&
           matchesState &&
           matchesFormat &&
           matchesPrice &&
-          matchesDuration;
+          matchesDuration &&
+          matchesTab;
     }).toList();
 
     list.sort((a, b) {
@@ -385,6 +448,24 @@ class _CoursesScreenState extends State<CoursesScreen> {
     });
   }
 
+  void _openCourseDetails(Map<String, dynamic> course) {
+    final id = course['_id'] as String? ?? '';
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CourseDetailScreen(
+          course: course,
+          inCart: _inCart(id),
+          onEnroll: () {
+            if (!_inCart(id)) {
+              _addToCart(course);
+              _snack('Added to cart');
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   void _removeFromCart(String id) =>
       setState(() => _cart = _cart.where((c) => c['_id'] != id).toList());
 
@@ -398,6 +479,11 @@ class _CoursesScreenState extends State<CoursesScreen> {
           )
           .toList();
     });
+  }
+
+  void _openCertificate(Map<String, dynamic> course) {
+    final title = (course['title'] as String? ?? 'course').trim();
+    _snack('Certificate ready for $title');
   }
 
   // ── Build ──────────────────────────────────────────────────────────
@@ -502,12 +588,12 @@ class _CoursesScreenState extends State<CoursesScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Course Catalog',
+                const Text(
+                  'My Courses',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
@@ -515,23 +601,29 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     letterSpacing: -0.2,
                   ),
                 ),
-                Text(
-                  'Pre-Licensing, Exam Prep, and CE catalog',
+                const Text(
+                  'Track your enrollment progress and completion',
                   style: TextStyle(
                     fontSize: 11,
                     color: kMuted,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (_usingSampleCourses)
+                  const Text(
+                    'Demo data loaded (API returned no courses).',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: kBlue,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
               ],
             ),
           ),
-          // Cart button
+          // Refresh button
           GestureDetector(
-            onTap: () => setState(() {
-              _filterOpen = false;
-              _drawerOpen = true;
-            }),
+            onTap: _fetchCourses,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               decoration: BoxDecoration(
@@ -549,61 +641,16 @@ class _CoursesScreenState extends State<CoursesScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.shopping_cart_outlined,
-                    size: 16,
-                    color: kDark,
-                  ),
+                  const Icon(Icons.refresh_rounded, size: 16, color: kDark),
                   const SizedBox(width: 6),
                   const Text(
-                    'Cart',
+                    'Refresh',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
                       color: kDark,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: kBlueFaint,
-                      border: Border.all(color: kBlueBorder),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      '${_cart.length}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        color: kDark,
-                      ),
-                    ),
-                  ),
-                  if (_cart.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: kDark,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        '\$${_total.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: kWhite,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -791,9 +838,11 @@ class _CoursesScreenState extends State<CoursesScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          _buildMyCourseTabs(),
           const SizedBox(height: 8),
           Text(
-            '${_filtered.length} courses',
+            '${_filtered.length} courses in $_myCoursesTab',
             style: const TextStyle(
               fontSize: 12,
               color: kMuted,
@@ -801,6 +850,57 @@ class _CoursesScreenState extends State<CoursesScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMyCourseTabs() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMyCourseTabChip(
+            label: 'In Progress',
+            active: _myCoursesTab == 'In Progress',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildMyCourseTabChip(
+            label: 'Completed',
+            active: _myCoursesTab == 'Completed',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildMyCourseTabChip(
+            label: 'Wishlist',
+            active: _myCoursesTab == 'Wishlist',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMyCourseTabChip({required String label, required bool active}) {
+    return GestureDetector(
+      onTap: () => setState(() => _myCoursesTab = label),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? kDark : kWhite,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: active ? kDark : kBorder),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            color: active ? kWhite : kMuted,
+          ),
+        ),
       ),
     );
   }
@@ -936,7 +1036,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'No courses found',
+              'No courses in this tab',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 color: kDark,
@@ -945,7 +1045,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
             ),
             const SizedBox(height: 6),
             const Text(
-              'Try adjusting your filters or search.',
+              'Try another tab or adjust state/type filters.',
               style: TextStyle(
                 fontSize: 12,
                 color: kMuted,
@@ -976,13 +1076,13 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (_, i) {
                       final course = courses[i];
-                      final id = course['_id'] as String? ?? i.toString();
                       return _CourseCard(
                         course: course,
-                        inCart: _inCart(id),
                         isExpanded: false,
                         compact: true,
-                        onAddToCart: () => _addToCart(course),
+                        onPrimaryAction: () => _openCourseDetails(course),
+                        onCertificate: () => _openCertificate(course),
+                        onOpenDetails: () => _openCourseDetails(course),
                         onToggleExpand: () {},
                       );
                     },
@@ -1001,13 +1101,13 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   itemCount: courses.length,
                   itemBuilder: (_, i) {
                     final course = courses[i];
-                    final id = course['_id'] as String? ?? i.toString();
                     return _CourseCard(
                       course: course,
-                      inCart: _inCart(id),
                       isExpanded: false,
                       compact: true,
-                      onAddToCart: () => _addToCart(course),
+                      onPrimaryAction: () => _openCourseDetails(course),
+                      onCertificate: () => _openCertificate(course),
+                      onOpenDetails: () => _openCourseDetails(course),
                       onToggleExpand: () {},
                     );
                   },
@@ -1023,10 +1123,11 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 final id = course['_id'] as String? ?? i.toString();
                 return _CourseCard(
                   course: course,
-                  inCart: _inCart(id),
                   isExpanded: _expanded.contains(id),
                   compact: false,
-                  onAddToCart: () => _addToCart(course),
+                  onPrimaryAction: () => _openCourseDetails(course),
+                  onCertificate: () => _openCertificate(course),
+                  onOpenDetails: () => _openCourseDetails(course),
                   onToggleExpand: () => setState(() {
                     _expanded.contains(id)
                         ? _expanded.remove(id)
@@ -1589,22 +1690,22 @@ class _CoursesScreenState extends State<CoursesScreen> {
 // ─── Course Card ──────────────────────────────────────────────────────
 class _CourseCard extends StatelessWidget {
   final Map<String, dynamic> course;
-  final bool inCart;
   final bool isExpanded;
   final bool compact;
-  final VoidCallback onAddToCart;
+  final VoidCallback onPrimaryAction;
+  final VoidCallback onCertificate;
+  final VoidCallback onOpenDetails;
   final VoidCallback onToggleExpand;
 
   const _CourseCard({
     required this.course,
-    required this.inCart,
     required this.isExpanded,
     this.compact = false,
-    required this.onAddToCart,
+    required this.onPrimaryAction,
+    required this.onCertificate,
+    required this.onOpenDetails,
     required this.onToggleExpand,
   });
-
-  double _num(dynamic v) => v is num ? v.toDouble() : 0.0;
 
   @override
   Widget build(BuildContext context) {
@@ -1613,9 +1714,6 @@ class _CourseCard extends StatelessWidget {
     final creditHrs = (course['credit_hours'] as num?)?.toDouble() ?? 0;
     final duration =
         (course['duration_hours'] as num?)?.toDouble() ?? creditHrs;
-    final price = _num(course['price']);
-    final tbPrice = _num(course['textbook_price']);
-    final hasTextbook = course['has_textbook'] == true;
     final states = (course['states_approved'] as List?)?.cast<String>() ?? [];
     final modules = (course['modules'] as List?) ?? [];
     final rating = (course['rating'] as num?)?.toDouble() ?? 0;
@@ -1624,6 +1722,29 @@ class _CourseCard extends StatelessWidget {
     final type = (course['catalog_type'] as String? ?? 'Pre-Licensing');
     final badges =
         (course['badges'] as List?)?.map((e) => e.toString()).toList() ?? [];
+
+    final status = (course['enrollment_status'] as String? ?? 'in_progress')
+        .toLowerCase();
+    final progress = ((course['progress_percent'] as num?)?.toDouble() ?? 0)
+        .clamp(0.0, 1.0);
+    final lastAccessedRaw = course['last_accessed_at'] as String?;
+    final lastAccessedDate = lastAccessedRaw == null
+        ? null
+        : DateTime.tryParse(lastAccessedRaw);
+    final lastAccessed = lastAccessedDate == null
+        ? 'N/A'
+        : '${lastAccessedDate.month.toString().padLeft(2, '0')}/${lastAccessedDate.day.toString().padLeft(2, '0')}/${lastAccessedDate.year}';
+
+    final isCompleted = status == 'completed';
+    final isWishlist = status == 'wishlist';
+    final primaryLabel = isCompleted
+        ? 'Review'
+        : isWishlist
+        ? 'Start'
+        : progress > 0
+        ? 'Resume'
+        : 'Start';
+    final progressPct = (progress * 100).round();
 
     Color typeColor = kBlue;
     Color typeBg = kBlueFaint;
@@ -1654,7 +1775,6 @@ class _CourseCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Body ─────────────────────────────────────────────────────
           Padding(
             padding: EdgeInsets.all(compact ? 12 : 14),
             child: Column(
@@ -1663,22 +1783,25 @@ class _CourseCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: compact ? 54 : 72,
-                      height: compact ? 54 : 72,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: kBorder),
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0F2A3A), Color(0xFF2EABFE)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                    GestureDetector(
+                      onTap: onOpenDetails,
+                      child: Container(
+                        width: compact ? 54 : 72,
+                        height: compact ? 54 : 72,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: kBorder),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0F2A3A), Color(0xFF2EABFE)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                         ),
-                      ),
-                      child: const Icon(
-                        Icons.play_lesson_outlined,
-                        color: kWhite,
-                        size: 20,
+                        child: const Icon(
+                          Icons.play_lesson_outlined,
+                          color: kWhite,
+                          size: 20,
+                        ),
                       ),
                     ),
                     SizedBox(width: compact ? 8 : 10),
@@ -1686,16 +1809,19 @@ class _CourseCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: compact ? 13 : 14,
-                              fontWeight: FontWeight.w900,
-                              color: kDark,
-                              height: 1.2,
+                          GestureDetector(
+                            onTap: onOpenDetails,
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontSize: compact ? 13 : 14,
+                                fontWeight: FontWeight.w900,
+                                color: kDark,
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: compact ? 2 : 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                           SizedBox(height: compact ? 2 : 4),
                           Text(
@@ -1709,16 +1835,16 @@ class _CourseCard extends StatelessWidget {
                             ),
                           ),
                           if (!compact && desc.isNotEmpty) ...[
-                            SizedBox(height: compact ? 2 : 4),
+                            const SizedBox(height: 4),
                             Text(
                               desc,
-                              style: TextStyle(
-                                fontSize: compact ? 11 : 12,
+                              style: const TextStyle(
+                                fontSize: 12,
                                 color: kMuted,
                                 fontWeight: FontWeight.w600,
                                 height: 1.4,
                               ),
-                              maxLines: compact ? 1 : 2,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
@@ -1728,7 +1854,6 @@ class _CourseCard extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: compact ? 8 : 10),
-
                 Row(
                   children: [
                     Container(
@@ -1777,7 +1902,6 @@ class _CourseCard extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: compact ? 8 : 12),
-
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -1799,7 +1923,6 @@ class _CourseCard extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 if (badges.isNotEmpty) ...[
                   SizedBox(height: compact ? 8 : 10),
                   Wrap(
@@ -1844,7 +1967,6 @@ class _CourseCard extends StatelessWidget {
                     }).toList(),
                   ),
                 ],
-
                 if (!compact && modules.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   GestureDetector(
@@ -1928,8 +2050,6 @@ class _CourseCard extends StatelessWidget {
               ],
             ),
           ),
-
-          // ── Footer: price + Add button ────────────────────────────────
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: compact ? 12 : 16,
@@ -1938,70 +2058,169 @@ class _CourseCard extends StatelessWidget {
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: kBorder)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text(
-                      '\$${price.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: compact ? 16 : 18,
-                        fontWeight: FontWeight.w900,
-                        color: kDark,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    if (hasTextbook)
-                      Text(
-                        '+ Textbook (\$${tbPrice.toStringAsFixed(2)})',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: kMuted,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                  ],
-                ),
-                GestureDetector(
-                  onTap: inCart ? null : onAddToCart,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: compact ? 12 : 16,
-                      vertical: compact ? 8 : 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: inCart ? kTealFaint : kBlue,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: inCart ? kTealBorder : kBlueBorder,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          inCart
-                              ? Icons.check_rounded
-                              : Icons.arrow_forward_rounded,
-                          size: compact ? 14 : 15,
-                          color: inCart ? kTeal : kWhite,
-                        ),
-                        SizedBox(width: compact ? 4 : 6),
-                        Text(
-                          inCart ? 'Enrolled' : 'Enroll Now',
-                          style: TextStyle(
-                            fontSize: compact ? 12 : 13,
-                            fontWeight: FontWeight.w900,
-                            color: inCart ? kTeal : kWhite,
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 7,
+                          backgroundColor: const Color(0xFFE7EBF1),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isCompleted ? kTeal : kBlue,
                           ),
                         ),
-                      ],
+                      ),
                     ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '$progressPct%',
+                      style: TextStyle(
+                        fontSize: compact ? 11 : 12,
+                        color: kDark,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Last accessed: $lastAccessed',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: kMuted,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: onPrimaryAction,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compact ? 10 : 14,
+                            vertical: compact ? 8 : 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isCompleted ? kTeal : kBlue,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isCompleted ? kTealBorder : kBlueBorder,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                isCompleted
+                                    ? Icons.replay_rounded
+                                    : Icons.play_arrow_rounded,
+                                size: compact ? 14 : 15,
+                                color: kWhite,
+                              ),
+                              SizedBox(width: compact ? 4 : 6),
+                              Text(
+                                primaryLabel,
+                                style: TextStyle(
+                                  fontSize: compact ? 12 : 13,
+                                  fontWeight: FontWeight.w900,
+                                  color: kWhite,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (isCompleted) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: onCertificate,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: kWhite,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: kBorder),
+                          ),
+                          child: const Text(
+                            'Certificate',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: kDark,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else if (!compact) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: onOpenDetails,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: kWhite,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: kBorder),
+                          ),
+                          child: const Text(
+                            'View details',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: kDark,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (isWishlist) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Saved for later',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: kMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ] else if (!isCompleted) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '$progressPct% complete',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: kMuted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Completed',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: kTeal,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
