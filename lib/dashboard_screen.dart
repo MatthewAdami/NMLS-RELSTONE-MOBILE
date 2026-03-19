@@ -7,6 +7,7 @@ import 'package:nmls_mobile/how_it_works_screen.dart';
 import 'package:nmls_mobile/about_relstone_screen.dart';
 import 'package:nmls_mobile/faq_screen.dart';
 import 'contact_support_page.dart';
+import 'edit_profile_screen.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -544,21 +545,35 @@ class _ProfileSheet extends StatelessWidget {
         const SizedBox(height: 20),
         SizedBox(width: double.infinity,
           child: OutlinedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => EditProfileScreen(
+                    userName: userName,
+                    userEmail: userEmail,
+                    userPhone: '', // TODO: fetch phone from user/profile
+                    userAddress: '', // TODO: fetch address from user/profile
+                    state: state,
+                    licenseGoal: '', // TODO: fetch license goal from user/profile
+                  ),
+                ),
+              );
+            },
+            style: OutlinedButton.styleFrom(foregroundColor: kBlue,
+                side: const BorderSide(color: kBlue),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: const Text('Edit Profile', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)))),
+        const SizedBox(height: 8),
+        SizedBox(width: double.infinity,
+          child: OutlinedButton(
             onPressed: onSignOut,
             style: OutlinedButton.styleFrom(foregroundColor: kMuted,
                 side: const BorderSide(color: kBorder),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             child: const Text('Sign Out', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)))),
-        const SizedBox(height: 8),
-        SizedBox(width: double.infinity,
-          child: OutlinedButton(
-            onPressed: onHowItWorks,
-            style: OutlinedButton.styleFrom(foregroundColor: kBlue,
-                side: const BorderSide(color: kBlue),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            child: const Text('How It Works', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)))),
         const SizedBox(height: 8),
       ]),
     );
