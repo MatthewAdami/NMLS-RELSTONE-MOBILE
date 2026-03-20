@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
 import 'package:nmls_mobile/courses_screen.dart';
+import 'package:nmls_mobile/exam_prep_center_screen.dart';
 import 'package:nmls_mobile/states_screen.dart';
 
 // â”€â”€â”€ Theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -149,6 +150,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _goToStateRequirements() => Navigator.of(
     context,
   ).push(MaterialPageRoute(builder: (_) => const StatesScreen()));
+
+  void _goToExamPrepCenter() => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => ExamPrepCenterScreen(token: widget.token),
+    ),
+  );
 
   void _switchTab(int t) {
     if (t == _tab) return;
@@ -511,6 +518,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           title: 'State requirements',
           subtitle: 'View licensing and CE rules',
           onTap: _goToStateRequirements,
+        ),
+        const SizedBox(height: 8),
+        _ActionCard(
+          icon: Icons.psychology_alt_outlined,
+          title: 'Exam prep center',
+          subtitle: 'Simulator, drills, flashcards, and analytics',
+          onTap: _goToExamPrepCenter,
         ),
         const SizedBox(height: 8),
         _ActionCard(
