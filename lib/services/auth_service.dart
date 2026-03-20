@@ -24,7 +24,6 @@ class AuthService {
       final user = data['user'];
 
       final prefs = await SharedPreferences.getInstance();
-      print(await prefs.getString('token'));  // To verify if the token is stored
       if (token != null) await prefs.setString('token', token.toString());
       if (user != null) await prefs.setString('user', user.toString());
 
