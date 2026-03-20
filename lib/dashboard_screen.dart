@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
 import 'package:nmls_mobile/courses_screen.dart';
 import 'package:nmls_mobile/exam_prep_center_screen.dart';
+import 'package:nmls_mobile/notifications_screen.dart';
 import 'package:nmls_mobile/states_screen.dart';
 
 // â”€â”€â”€ Theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -157,6 +158,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     ),
   );
 
+  void _goToNotifications() => Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => NotificationsScreen(token: widget.token)),
+  );
+
   void _switchTab(int t) {
     if (t == _tab) return;
     _fadeCtrl.reset();
@@ -219,6 +224,24 @@ class _DashboardScreenState extends State<DashboardScreen>
           ],
         ),
         const Spacer(),
+        GestureDetector(
+          onTap: _goToNotifications,
+          child: Container(
+            width: 36,
+            height: 36,
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+              color: kBlueFaint,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: kBlueBorder),
+            ),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              color: kBlue,
+              size: 20,
+            ),
+          ),
+        ),
         _Avatar(initial: _initial, size: 36),
       ],
     ),
@@ -525,6 +548,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           title: 'Exam prep center',
           subtitle: 'Simulator, drills, flashcards, and analytics',
           onTap: _goToExamPrepCenter,
+        ),
+        const SizedBox(height: 8),
+        _ActionCard(
+          icon: Icons.notifications_active_outlined,
+          title: 'Notifications',
+          subtitle: 'Milestones, CE reminders, offers, and announcements',
+          onTap: _goToNotifications,
         ),
         const SizedBox(height: 8),
         _ActionCard(

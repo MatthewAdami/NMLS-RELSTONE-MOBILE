@@ -11,6 +11,7 @@ const coursesRoutes = require('./routes/courses');
 const ordersRoutes = require('./routes/orders');
 const statesRoutes = require('./routes/states');
 const examPrepRoutes = require('./routes/exam_prep');
+const notificationsRoutes = require('./routes/notifications');
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use('/api/courses', coursesRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/states', statesRoutes);
 app.use('/api/exam-prep', examPrepRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
 const MONGO_URI = process.env.MONGO_URI;
