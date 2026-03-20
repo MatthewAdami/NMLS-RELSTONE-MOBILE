@@ -8,6 +8,7 @@ import 'package:nmls_mobile/about_relstone_screen.dart';
 import 'package:nmls_mobile/faq_screen.dart';
 import 'contact_support_page.dart';
 import 'edit_profile_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -37,6 +38,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with SingleTickerProviderStateMixin {
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   // Tabs: 0=Overview, 1=Transcript, 2=Orders
   int _tab = 0;
@@ -145,7 +148,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: kBg,
+      endDrawer: _SidebarDrawer(onCertificatesTap: () {
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => MyCertificatesScreen()));
+      }),
+      drawer: null,
       body: SafeArea(child: Column(children: [
         _buildTopBar(),
         Expanded(child: _loading
@@ -171,7 +179,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             fontSize: 11, color: kMuted, fontWeight: FontWeight.w700)),
       ]),
       const Spacer(),
-      _Avatar(initial: _initial, size: 36),
+      GestureDetector(
+        onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
+        child: _Avatar(initial: _initial, size: 36),
+      ),
     ]),
   );
 
@@ -349,8 +360,8 @@ class _DashboardScreenState extends State<DashboardScreen>
             context,
             MaterialPageRoute(
               builder: (context) => ContactSupportPage(
-                userName: _userName ?? '',
-                userEmail: _userEmail ?? '',
+                userName: _userName,
+                userEmail: _userEmail,
               ),
             ),
           );
@@ -576,6 +587,346 @@ class _ProfileSheet extends StatelessWidget {
             child: const Text('Sign Out', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)))),
         const SizedBox(height: 8),
       ]),
+    );
+  }
+}
+
+// ─── Sidebar Drawer ───────────────────────────────────────────────────
+class _SidebarDrawer extends StatelessWidget {
+  final VoidCallback onCertificatesTap;
+  const _SidebarDrawer({required this.onCertificatesTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: Container(
+        width: 320,
+        decoration: BoxDecoration(
+          color: kDark,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            bottomLeft: Radius.circular(24),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 24,
+              offset: Offset(-4, 0),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              decoration: BoxDecoration(
+                color: kDark,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Menu',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 22,
+                      color: kBlue,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  SizedBox(height: 6),
+                  Text('Access your certificates and more',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w400,
+                      fontSize: 13,
+                      color: kWhite,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: kBorder, height: 1),
+            ListTile(
+              leading: Icon(Icons.workspace_premium_outlined, color: kBlue, size: 24),
+              title: Text('My Certificates',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                  color: kWhite,
+                ),
+              ),
+              onTap: onCertificatesTap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              tileColor: Colors.transparent,
+              hoverColor: kBlueFaint,
+            ),
+            // ...add more menu items here if needed...
+            Spacer(),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+              child: Text('© Relstone 2026',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w400,
+                  fontSize: 12,
+                  color: kMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class MyCertificatesScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: kDark,
+        elevation: 0,
+        title: Text('My Certificates',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w700,
+            fontSize: 22,
+            color: kBlue,
+            letterSpacing: -0.2,
+          ),
+        ),
+      ),
+      backgroundColor: Colors.black,
+      body: ListView(
+        padding: EdgeInsets.all(16),
+        children: [
+          Container(
+            margin: EdgeInsets.only(bottom: 18),
+            padding: EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: kBlueBorder),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: kBlue, size: 22),
+                    SizedBox(width: 10),
+                    Text('Certificate Submission Instructions',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        color: kBlue,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 10),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: kBlueBorder),
+                  ),
+                  child: Text(
+                    '1. Download your certificate.\n2. Log in to your state commission portal.\n3. Upload the PDF certificate.\n4. Contact Relstone for support if needed.',
+                    style: TextStyle(
+                      fontFamily: 'JetBrains Mono',
+                      color: kWhite,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _CertificateCard(
+            courseTitle: 'Mortgage Fundamentals',
+            studentName: 'John Doe',
+            hours: 8,
+            completionDate: '06/10/2026',
+            approvalNumber: '123456',
+            imagePath: 'assets/images/sample_cert.webp',
+            pdfUrl: 'https://your-server.com/certificates/mortgage_fundamentals.pdf',
+          ),
+          _CertificateCard(
+            courseTitle: 'Ethics in Lending',
+            studentName: 'John Doe',
+            hours: 4,
+            completionDate: '03/15/2026',
+            approvalNumber: '654321',
+            imagePath: 'assets/images/sample_cert.webp',
+            pdfUrl: 'https://your-server.com/certificates/ethics_in_lending.pdf',
+          ),
+          _CertificateCard(
+            courseTitle: 'Federal Law & Regulations',
+            studentName: 'John Doe',
+            hours: 6,
+            completionDate: '02/28/2026',
+            approvalNumber: '789012',
+            imagePath: 'assets/images/sample_cert.webp',
+            pdfUrl: 'https://your-server.com/certificates/federal_law_regulations.pdf',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CertificateCard extends StatelessWidget {
+  final String courseTitle;
+  final String studentName;
+  final int hours;
+  final String completionDate;
+  final String approvalNumber;
+  final String imagePath;
+  final String pdfUrl;
+
+  const _CertificateCard({
+    required this.courseTitle,
+    required this.studentName,
+    required this.hours,
+    required this.completionDate,
+    required this.approvalNumber,
+    required this.imagePath,
+    required this.pdfUrl,
+  });
+
+  void _downloadPdf(BuildContext context) async {
+    final uri = Uri.parse(pdfUrl);
+    if (Theme.of(context).platform == TargetPlatform.android || Theme.of(context).platform == TargetPlatform.iOS) {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to open PDF.')),
+        );
+      }
+    } else {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: kDark,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: kBlueBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(courseTitle,
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+              color: kBlue,
+            ),
+          ),
+          SizedBox(height: 8),
+          Container(
+            height: 120,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: kBlueBorder),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: 120,
+                errorBuilder: (context, error, stackTrace) => Center(
+                  child: Text('Sample Certificate Image',
+                    style: TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      color: kWhite,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 12),
+          Text('Student: $studentName', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
+          Text('Course: $courseTitle', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
+          Text('Hours: $hours', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
+          Text('Completion Date: $completionDate', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
+          Text('State Approval #: $approvalNumber', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
+          SizedBox(height: 8),
+          Row(
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kBlue,
+                  foregroundColor: kWhite,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                onPressed: () => _downloadPdf(context),
+                child: Text('Download PDF'),
+              ),
+              SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kBlue,
+                  foregroundColor: kWhite,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                onPressed: () {},
+                child: Text('Share to LinkedIn'),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          Container(
+            height: 40,
+            width: 120,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(child: Text('Relstone Seal',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                color: kBlue,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            )),
+          ),
+        ],
+      ),
     );
   }
 }
