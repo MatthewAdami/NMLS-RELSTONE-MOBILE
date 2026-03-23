@@ -5,6 +5,7 @@ import 'package:nmls_mobile/config/api_config.dart';
 import 'package:nmls_mobile/courses_screen.dart';
 import 'package:nmls_mobile/exam_prep_center_screen.dart';
 import 'package:nmls_mobile/notifications_screen.dart';
+import 'package:nmls_mobile/blog_resources_screen.dart';
 import 'package:nmls_mobile/states_screen.dart';
 
 // â”€â”€â”€ Theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -161,6 +162,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _goToNotifications() => Navigator.of(context).push(
     MaterialPageRoute(builder: (_) => NotificationsScreen(token: widget.token)),
   );
+
+  void _goToResources() => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const BlogResourcesScreen()));
 
   void _switchTab(int t) {
     if (t == _tab) return;
@@ -548,6 +553,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           title: 'Exam prep center',
           subtitle: 'Simulator, drills, flashcards, and analytics',
           onTap: _goToExamPrepCenter,
+        ),
+        const SizedBox(height: 8),
+        _ActionCard(
+          icon: Icons.library_books_outlined,
+          title: 'Blog and resources',
+          subtitle:
+              'Study tips, state guides, career advice, and industry news',
+          onTap: _goToResources,
         ),
         const SizedBox(height: 8),
         _ActionCard(

@@ -35,7 +35,11 @@ class ApiConfig {
   static String get examPrepAnalytics =>
       '$baseUrl$apiPrefix/exam-prep/analytics';
   static String get examPrepAttempt => '$baseUrl$apiPrefix/exam-prep/attempt';
-    static String get notifications => '$baseUrl$apiPrefix/notifications';
+  static String get notifications => '$baseUrl$apiPrefix/notifications';
+  static String get resources => '$baseUrl$apiPrefix/resources';
+  static String resourceDetail(String id) => '$baseUrl$apiPrefix/resources/$id';
+  static String get newsletterSubscribe =>
+      '$baseUrl$apiPrefix/resources/newsletter-subscribe';
   static String get stateRequirements =>
       '$baseUrl$apiPrefix/states/requirements';
   static String stateRequirementDetail(String stateCode) =>
