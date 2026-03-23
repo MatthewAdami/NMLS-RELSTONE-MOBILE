@@ -2,13 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
-import 'package:nmls_mobile/courses_screen.dart';
 import 'package:nmls_mobile/how_it_works_screen.dart';
-import 'package:nmls_mobile/about_relstone_screen.dart';
 import 'package:nmls_mobile/faq_screen.dart';
 import 'contact_support_page.dart';
-import 'edit_profile_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -27,6 +23,195 @@ const kMuted       = Color(0x990B1220);
 const kBorder      = Color(0x1A020817);
 const kSurface     = Color(0xD0FFFFFF);
 
+// ── Custom Widgets ──────────────────────────────────────────────────
+// Sidebar drawer menu
+class _SidebarDrawer extends StatelessWidget {
+  final VoidCallback onCertificatesTap;
+  final String userName;
+  final String userEmail;
+  const _SidebarDrawer({required this.onCertificatesTap, required this.userName, required this.userEmail});
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: Container(
+        color: kDark,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+              decoration: BoxDecoration(
+                color: kBlue,
+                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+              ),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.white,
+                    child: Icon(Icons.person, size: 40, color: kBlue),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(userName, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 18, color: kDark)),
+                  Text(userEmail, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w400, fontSize: 14, color: kDark.withValues(alpha: 0.7))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            _DrawerItem(icon: Icons.home, label: 'Home', onTap: () {
+              Navigator.of(context).pop();
+              // Navigate to Home
+            }),
+            _DrawerItem(icon: Icons.book, label: 'Courses', onTap: () {
+              Navigator.of(context).pop();
+              // Navigate to Courses
+            }),
+            _DrawerItem(icon: Icons.assignment, label: 'Exam Prep', onTap: () {
+              Navigator.of(context).pop();
+              // Navigate to Exam Prep
+            }),
+            _DrawerItem(icon: Icons.access_time, label: 'CE Tracker', onTap: () {
+              Navigator.of(context).pop();
+              // Navigate to CE Tracker
+            }),
+            const SizedBox(height: 20),
+            Divider(color: Colors.white54),
+            const SizedBox(height: 20),
+            _DrawerItem(icon: Icons.help, label: 'FAQ', onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => FaqScreen()));
+            }),
+            _DrawerItem(icon: Icons.support, label: 'Contact Support', onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ContactSupportPage(userName: userName, userEmail: userEmail)));
+            }),
+            const SizedBox(height: 20),
+            Divider(color: Colors.white54),
+            const SizedBox(height: 20),
+            _DrawerItem(icon: Icons.logout, label: 'Sign Out', onTap: () {
+              // Handle sign out
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Drawer item widget
+class _DrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _DrawerItem({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 24),
+            const SizedBox(width: 16),
+            Text(label, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 16, color: Colors.white)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// My Certificates screen (stub)
+class MyCertificatesScreen extends StatelessWidget {
+  const MyCertificatesScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('My Certificates')),
+      body: Center(child: Text('Certificates content here')),
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+// More sheet at bottom
+class _MoreSheet extends StatelessWidget {
+  final String userName;
+  final String userEmail;
+  final String nmlsId;
+  final String state;
+  final String initial;
+  final VoidCallback onSignOut;
+  final VoidCallback onHowItWorks;
+  const _MoreSheet({required this.userName, required this.userEmail, required this.nmlsId, required this.state, required this.initial, required this.onSignOut, required this.onHowItWorks});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: kWhite,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: kBlue,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.person, size: 40, color: kBlue),
+                ),
+                const SizedBox(height: 10),
+                Text(userName, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 18, color: kDark)),
+                Text(userEmail, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w400, fontSize: 14, color: kDark.withValues(alpha: 0.7))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          ListTile(
+            leading: Icon(Icons.info_outline, color: kBlue),
+            title: Text('How it works', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 16)),
+            onTap: onHowItWorks,
+          ),
+          ListTile(
+            leading: Icon(Icons.support_agent, color: kBlue),
+            title: Text('Contact Support', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 16)),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ContactSupportPage(userName: userName, userEmail: userEmail)));
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.logout, color: kBlue),
+            title: Text('Sign Out', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 16)),
+            onTap: onSignOut,
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Main Dashboard Screen ─────────────────────────────────────────────
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic>? user;
   final String? token;
@@ -66,9 +251,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   String get _state     => (_profile['state']   as String?) ?? 'Not set';
   String get _initial   => _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U';
 
-  int get _peCount => (_dashboard?['completions']?['PE'] as List?)?.length ?? 0;
-  int get _ceCount => (_dashboard?['completions']?['CE'] as List?)?.length ?? 0;
-
   List<Map<String, dynamic>> get _allCompletions {
     final pe = (_dashboard?['completions']?['PE'] as List?) ?? [];
     final ce = (_dashboard?['completions']?['CE'] as List?) ?? [];
@@ -87,8 +269,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     final raw = (_dashboard?['orders'] as List?) ?? [];
     return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
-
-  int get _pendingOrderCount => _orders.where((o) => o['status'] == 'pending').length;
 
   // ── Lifecycle ─────────────────────────────────────────────────────
   @override
@@ -121,27 +301,14 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  void _goToCourses() => Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => CoursesScreen(token: widget.token)),
-  );
-
-  void _switchTab(int t) {
-    if (t == _tab) return;
-    _fadeCtrl.reset();
-    setState(() => _tab = t);
-    _fadeCtrl.forward();
+  void _goToCourses(BuildContext context) {
+    Navigator.of(context).pushNamed('/courses');
   }
 
-    void _goToHowItWorks() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => HowItWorksScreen()),
-    );
-    }
-
-  void _goToAboutRelstone() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => AboutRelstonePage()),
-    );
+  void _switchTab(int index) {
+    setState(() {
+      _tab = index;
+    });
   }
 
   // ── Build ─────────────────────────────────────────────────────────
@@ -152,7 +319,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       backgroundColor: kBg,
       endDrawer: _SidebarDrawer(onCertificatesTap: () {
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => MyCertificatesScreen()));
-      }),
+      }, userName: _userName, userEmail: _userEmail),
       drawer: null,
       body: SafeArea(child: Column(children: [
         _buildTopBar(),
@@ -167,23 +334,81 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   // ── Top Bar ───────────────────────────────────────────────────────
+   // Redesigned header card (matches provided image)
   Widget _buildTopBar() => Container(
-    decoration: const BoxDecoration(color: kSurface,
-        border: Border(bottom: BorderSide(color: kBorder))),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    child: Row(children: [
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('NMLS Student Portal', style: TextStyle(
-            fontSize: 15, fontWeight: FontWeight.w900, color: kDark, letterSpacing: -0.2)),
-        const Text('Your learning status, transcript, and orders', style: TextStyle(
-            fontSize: 11, color: kMuted, fontWeight: FontWeight.w700)),
-      ]),
-      const Spacer(),
-      GestureDetector(
-        onTap: () => _scaffoldKey.currentState?.openEndDrawer(),
-        child: _Avatar(initial: _initial, size: 36),
-      ),
-    ]),
+    color: kDark,
+    padding: const EdgeInsets.only(bottom: 18),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Good morning,',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w400,
+                          fontSize: 14,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        )),
+                    Row(
+                      children: [
+                        Text(_userName, // Use actual user name
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontWeight: FontWeight.w700,
+                              fontSize: 22,
+                              color: Colors.white,
+                              letterSpacing: -0.2,
+                            )),
+                        const SizedBox(width: 6),
+                        const Text('👋', style: TextStyle(fontSize: 22)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none_rounded, color: kBlue, size: 28),
+                    onPressed: () {},
+                  ),
+                  Positioned(
+                    right: 8, top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(99)),
+                      child: Text('3', style: const TextStyle(
+                        fontFamily: 'Poppins', color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              _StatCard(label: 'In Progress', value: '3'),
+              const SizedBox(width: 10),
+              _StatCard(label: 'Completed', value: '12'),
+              const SizedBox(width: 10),
+              _StatCard(label: 'CE Hours', value: '20h'),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 
   // ── Body ──────────────────────────────────────────────────────────
@@ -193,265 +418,371 @@ class _DashboardScreenState extends State<DashboardScreen>
     child: SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: Column(children: [
-        _buildHero(),
-        _buildTabCard(),
+        // MY LEARNING HEADER (left-aligned)
+        Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
+          child: Text('MY LEARNING',
+            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
+        ),
+        _buildMyLearningSection(),
+        // NEXT UP HEADER (left-aligned)
+        Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
+          child: Text('NEXT UP',
+            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
+        ),
+        _buildNextUpSection(),
+        // UPCOMING DEADLINES HEADER (left-aligned)
+        Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
+          child: Text('UPCOMING DEADLINES',
+            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
+        ),
+        _buildDeadlinesSection(),
+        // ACHIEVEMENTS HEADER (left-aligned)
+        Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
+          child: Text('ACHIEVEMENTS',
+            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
+        ),
+        _buildAchievementsSection(),
+        // RECOMMENDED FOR YOU HEADER (left-aligned)
+        Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
+          child: Text('RECOMMENDED FOR YOU',
+            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
+        ),
+        _buildRecommendedForYouSection(),
+        const SizedBox(height: 32),
       ]),
     ),
   );
 
-  // ── Hero ──────────────────────────────────────────────────────────
-  Widget _buildHero() => Container(
-    margin: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-          colors: [Color(0xFF091925), Color(0xFF0B2A3A), kBlue],
-          stops: [0.0, 0.45, 1.0],
-          begin: Alignment.centerLeft, end: Alignment.centerRight),
-      borderRadius: BorderRadius.circular(22),
-      boxShadow: [BoxShadow(color: kDark.withValues(alpha: 0.22), blurRadius: 28, offset: const Offset(0, 8))],
-    ),
-    child: Stack(children: [
-      Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(22),
-          child: CustomPaint(painter: _GlowPainter()))),
-      Padding(padding: const EdgeInsets.all(16), child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, children: [
+  // 2. MY LEARNING SECTION: Courses in progress with % completion bar and Resume button
+  Widget _buildMyLearningSection() {
+    // Use mock data for in-progress courses
+    final inProgressCourses = [
+      {
+        'title': 'Real Estate Principles',
+        'progress_percent': 0.72,
+        'last_lesson': 'Ch. 8 — Contracts',
+      },
+      {
+        'title': 'Mortgage Brokerage',
+        'progress_percent': 0.38,
+        'last_lesson': 'Ch. 3 — FHA Loans',
+      },
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...inProgressCourses.map((course) {
+          final title = course['title'] as String? ?? 'Untitled';
+          final progress = ((course['progress_percent'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
+          final progressPct = (progress * 100).round();
+          final lastLesson = course['last_lesson'] as String? ?? '';
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: kWhite,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: kBorder),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: Offset(0, 2))],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 15, color: kDark)),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 8,
+                          backgroundColor: kBlueFaint,
+                          valueColor: AlwaysStoppedAnimation<Color>(kBlue),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('$progressPct%', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13, color: kBlue, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Last: $lastLesson', style: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: kMuted)),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kBlue,
+                        foregroundColor: kWhite,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                      onPressed: () {},
+                      child: Text('Resume'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
 
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Account Snapshot', style: TextStyle(
-                color: Color(0xBFFFFFFF), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-            const SizedBox(height: 4),
-            const Text('Stay on track with your NMLS progress.', style: TextStyle(
-                color: kWhite, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: -0.2)),
-          ])),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: _goToCourses,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.18))),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.menu_book_outlined, color: kWhite, size: 14),
-                SizedBox(width: 6),
-                Text('Browse courses', style: TextStyle(
-                    color: kWhite, fontSize: 12, fontWeight: FontWeight.w900)),
-                SizedBox(width: 4),
-                Icon(Icons.chevron_right, color: kWhite, size: 14),
-              ]),
+  // NEXT UP SECTION: Use mock data
+  Widget _buildNextUpSection() {
+    final nextLesson = 'Ch. 9 — Property Law';
+    final courseTitle = 'Real Estate Principles';
+    final duration = '22 min · Video';
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kBlueBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.play_circle_fill, color: kBlue, size: 32),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(courseTitle, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 13, color: kWhite)),
+                Text(nextLesson, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 15, color: kWhite)),
+                Text(duration, style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kWhite.withValues(alpha: 0.7))),
+              ],
             ),
           ),
-        ]),
-
-        const SizedBox(height: 12),
-
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          _ProfileChip(icon: Icons.tag, label: 'NMLS ID: $_nmlsId'),
-          _ProfileChip(icon: Icons.location_on_outlined, label: 'State: $_state'),
-          _ProfileChip(icon: Icons.check_circle_outline, label: 'Total Completions: ${_peCount + _ceCount}'),
-        ]),
-
-        const SizedBox(height: 14),
-
-        Row(children: [
-          Expanded(child: _KpiCard(icon: Icons.menu_book_outlined, title: 'Pre-Licensing (PE)', value: '$_peCount', caption: 'Completed')),
-          const SizedBox(width: 8),
-          Expanded(child: _KpiCard(icon: Icons.file_copy_outlined, title: 'Continuing Ed (CE)', value: '$_ceCount', caption: 'Completed', tone: 'teal')),
-          const SizedBox(width: 8),
-          Expanded(child: _KpiCard(icon: Icons.access_time_outlined, title: 'Pending Orders', value: '$_pendingOrderCount', caption: 'Awaiting', tone: 'amber')),
-        ]),
-      ])),
-    ]),
-  );
-
-  // ── Tab Card ──────────────────────────────────────────────────────
-  Widget _buildTabCard() => Container(
-    margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-    decoration: BoxDecoration(
-      color: kWhite,
-      borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: kBorder),
-      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 8))],
-    ),
-    child: Column(children: [
-      Container(
-        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: kBorder))),
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-        child: Row(children: [
-          _TabBtn(label: 'Overview',   active: _tab == 0, onTap: () => _switchTab(0)),
-          const SizedBox(width: 8),
-          _TabBtn(label: 'Transcript', active: _tab == 1, onTap: () => _switchTab(1)),
-          const SizedBox(width: 8),
-          _TabBtn(label: 'Orders',     active: _tab == 2, onTap: () => _switchTab(2)),
-        ]),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kBlue,
+              foregroundColor: kWhite,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            onPressed: () {},
+            child: Text('Start'),
+          ),
+        ],
       ),
-      FadeTransition(
-        opacity: _fadeAnim,
-        child: IndexedStack(index: _tab, children: [
-          _buildOverviewTab(),
-          _buildTranscriptTab(),
-          _buildOrdersTab(),
-        ]),
-      ),
-    ]),
-  );
+    );
+  }
 
-  // ── Overview Tab ──────────────────────────────────────────────────
-    Widget _buildOverviewTab() => Padding(
-    padding: const EdgeInsets.all(14),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _PanelHeader(title: 'Recent completions', actionLabel: 'View transcript', onAction: () => _switchTab(1)),
-      const SizedBox(height: 10),
-      if (_recentCompletions.isEmpty)
-        _EmptyState(icon: Icons.workspace_premium_outlined,
-          title: 'No completions yet',
-          subtitle: 'Once you complete a course, it will show here.',
-          actionLabel: 'Browse courses', onAction: _goToCourses)
-      else
-        ..._recentCompletions.map((c) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _CompletionRow(item: c))),
-      const SizedBox(height: 18),
-      const Text('Quick actions', style: TextStyle(
-          fontWeight: FontWeight.w900, color: kDark, fontSize: 14)),
-      const SizedBox(height: 10),
-      _ActionCard(icon: Icons.menu_book_outlined,    title: 'Browse courses',   subtitle: 'Find PE and CE courses',        onTap: _goToCourses),
-      const SizedBox(height: 8),
-      _ActionCard(icon: Icons.file_copy_outlined,    title: 'View transcript',  subtitle: 'Download and verify details',   onTap: () => _switchTab(1)),
-      const SizedBox(height: 8),
-      _ActionCard(icon: Icons.receipt_long_outlined, title: 'Check orders',     subtitle: 'Track payment and status',      onTap: () => _switchTab(2)),
-      const SizedBox(height: 8),
-      _ActionCard(
-        icon: Icons.info_outline,
-        title: 'How It Works',
-        subtitle: 'See the step-by-step NMLS process',
-        onTap: _goToHowItWorks,
+  // DEADLINES SECTION
+  Widget _buildDeadlinesSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: kWhite,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
       ),
-      const SizedBox(height: 8),
-      _ActionCard(
-        icon: Icons.business_outlined,
-        title: 'About Relstone',
-        subtitle: 'Learn more about Relstone',
-        onTap: _goToAboutRelstone,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFFFF6B6B))),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('CA License Renewal', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: kDark)),
+                    const SizedBox(height: 2),
+                    Text('28 days remaining', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMuted)),
+                  ],
+                ),
+              ),
+              Text('Jun 18', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFFFF6B6B))),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1, color: kBorder, thickness: 1),
+          ),
+          Row(
+            children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: kBlue)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('CE Hours Due', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: kDark)),
+                    const SizedBox(height: 2),
+                    Text('4 hrs remaining', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMuted)),
+                  ],
+                ),
+              ),
+              Text('Jul 1', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: kBlue)),
+            ],
+          ),
+        ],
       ),
-      const SizedBox(height: 8),
-      _ActionCard(
-        icon: Icons.help_outline_rounded,
-        title: 'Help Center / FAQ',
-        subtitle: 'Get answers & support',
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const FaqScreen()),
-          );
-        },
-      ),
-      const SizedBox(height: 8),
-      _ActionCard(icon: Icons.person_outline,        title: 'My Profile',       subtitle: 'View account info & sign out',  onTap: () => _showProfileSheet()),
-      const SizedBox(height: 8),
-      // Contact Support button
-      _ActionCard(
-        icon: Icons.support_agent,
-        title: 'Contact Support',
-        subtitle: 'Get in touch with our team',
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ContactSupportPage(
-                userName: _userName,
-                userEmail: _userEmail,
+    );
+  }
+
+  // ACHIEVEMENTS SECTION
+  Widget _buildAchievementsSection() {
+    final achievements = [
+      {'icon': '🏆', 'label': 'Top Scorer', 'locked': false},
+      {'icon': '🔥', 'label': '7-Day Streak', 'locked': false},
+      {'icon': '📜', 'label': '3 Certs', 'locked': false},
+      {'icon': '🌟', 'label': 'Locked', 'locked': true},
+    ];
+    return SizedBox(
+      height: 104,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        scrollDirection: Axis.horizontal,
+        itemCount: achievements.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final a = achievements[index];
+          final bool locked = a['locked'] as bool;
+          return Container(
+            width: 100,
+            decoration: BoxDecoration(
+              color: locked ? kBlue.withValues(alpha: 0.05) : kWhite,
+              borderRadius: BorderRadius.circular(16),
+              border: locked ? Border.all(color: kBlue.withValues(alpha: 0.15), width: 1.5, strokeAlign: BorderSide.strokeAlignInside) : null,
+              boxShadow: locked ? null : [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Opacity(
+              opacity: locked ? 0.4 : 1.0,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(a['icon'] as String, style: const TextStyle(fontSize: 28)),
+                  const SizedBox(height: 8),
+                  Text(a['label'] as String,
+                    style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 12, color: kDark)),
+                ],
               ),
             ),
           );
         },
       ),
-    ]),
     );
+  }
 
-  void _showProfileSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _ProfileSheet(
-        userName: _userName, userEmail: _userEmail,
-        nmlsId: _nmlsId, state: _state, initial: _initial,
-        onSignOut: () { Navigator.of(context).pop(); Navigator.of(context).pop(); },
-        onHowItWorks: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => HowItWorksScreen()));
+  // ── Recommended For You Section ──────────────────────────────────────
+  Widget _buildRecommendedForYouSection() {
+    final recommended = [
+      {'title': 'CE: Agency Law', 'state': 'CA', 'hours': 3, 'icon': Icons.menu_book},
+      {'title': 'Fair Housing Act', 'state': 'CA', 'hours': 2, 'icon': Icons.article_outlined},
+      {'title': 'Ethical Practices', 'state': 'TX', 'hours': 4, 'icon': Icons.gavel},
+    ];
+    return SizedBox(
+      height: 166,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: recommended.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (context, index) {
+          final c = recommended[index];
+          return Container(
+            width: 156,
+            decoration: BoxDecoration(
+              color: kWhite,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 94,
+                  color: kDark,
+                  alignment: Alignment.center,
+                  child: Icon(c['icon'] as IconData, color: kBlue, size: 38),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(c['title'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 13, color: kDark)),
+                        const SizedBox(height: 4),
+                        Text('${c['hours']} CE hrs · ${c['state']}',
+                          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 11, color: kMuted)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
         },
       ),
     );
   }
 
-  // ── Transcript Tab ────────────────────────────────────────────────
-  Widget _buildTranscriptTab() => Padding(
-    padding: const EdgeInsets.all(14),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Transcript', style: TextStyle(
-          fontSize: 15, fontWeight: FontWeight.w900, color: kDark, letterSpacing: -0.2)),
-      const SizedBox(height: 2),
-      Text('${_allCompletions.length} course${_allCompletions.length == 1 ? '' : 's'} completed',
-          style: const TextStyle(fontSize: 12, color: kMuted, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 14),
-      if (_allCompletions.isEmpty)
-        _EmptyState(icon: Icons.file_copy_outlined,
-          title: 'No completed courses yet',
-          subtitle: 'Complete a course to populate your transcript.',
-          actionLabel: 'Browse courses', onAction: _goToCourses)
-      else
-        ..._allCompletions.map((c) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: _TranscriptRow(item: c))),
-    ]),
-  );
 
-  // ── Orders Tab ────────────────────────────────────────────────────
-  Widget _buildOrdersTab() => Padding(
-    padding: const EdgeInsets.all(14),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Orders', style: TextStyle(
-          fontSize: 15, fontWeight: FontWeight.w900, color: kDark, letterSpacing: -0.2)),
-      const SizedBox(height: 2),
-      const Text('Your purchases and payment status',
-          style: TextStyle(fontSize: 12, color: kMuted, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 14),
-      if (_orders.isEmpty)
-        _EmptyState(icon: Icons.receipt_long_outlined,
-          title: 'No orders yet',
-          subtitle: 'When you purchase courses, your orders will show here.',
-          actionLabel: 'Browse courses', onAction: _goToCourses)
-      else
-        ..._orders.reversed.map((order) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _OrderCard(order: order))),
-    ]),
-  );
 
-  // ── Bottom Nav ────────────────────────────────────────────────────
-  Widget _buildBottomNav() {
+
+
+
+
+
+
+     // ── Bottom Nav ────────────────────────────────────────────────────
+    Widget _buildBottomNav() {
     final items = [
-      {'icon': Icons.home_outlined,      'active': Icons.home_rounded,      'label': 'Overview'},
-      {'icon': Icons.menu_book_outlined,  'active': Icons.menu_book_rounded,  'label': 'Courses'},
-      {'icon': Icons.file_copy_outlined,  'active': Icons.file_copy_rounded,  'label': 'Transcript'},
-      {'icon': Icons.person_outline,     'active': Icons.person_rounded,    'label': 'Profile'},
+      {'icon': Icons.home_outlined,      'active': Icons.home_rounded,      'label': 'Home'},
+      {'icon': Icons.menu_book_outlined, 'active': Icons.menu_book_rounded, 'label': 'Courses'},
+      {'icon': Icons.assignment_outlined, 'active': Icons.assignment,        'label': 'Exam Prep'},
+      {'icon': Icons.access_time_outlined, 'active': Icons.access_time_filled, 'label': 'CE Tracker'},
+      {'icon': Icons.more_horiz,         'active': Icons.more_horiz,        'label': 'More'},
     ];
 
     bool isActive(int i) {
       if (i == 0) return _tab == 0;
-      if (i == 2) return _tab == 1;
-      if (i == 3) return false;
+      if (i == 1) return false; // Courses handled by navigation
+      if (i == 2) return false; // Exam Prep handled by navigation
+      if (i == 3) return false; // CE Tracker handled by navigation
+      // More is never active (no tab)
       return false;
     }
 
     void onNavTap(int i) {
       if (i == 0) { _switchTab(0); return; }
-      if (i == 1) { _goToCourses(); return; }
-      if (i == 2) { _switchTab(1); return; }
-      if (i == 3) { _showProfileSheet(); return; }
+      if (i == 1) { _goToCourses(context); return; }
+      if (i == 2) { _goToExamPrep(); return; }
+      if (i == 3) { _goToCETracker(); return; }
+      if (i == 4) { _showMoreSheet(); return; }
     }
 
     return Container(
@@ -483,6 +814,45 @@ class _DashboardScreenState extends State<DashboardScreen>
         ));
       })),
     );
+    }
+
+    void _goToExamPrep() {
+    // TODO: Implement Exam Prep navigation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Exam Prep page coming soon!')),
+    );
+  }
+
+  void _goToCETracker() {
+    // TODO: Implement CE Tracker navigation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('CE Tracker page coming soon!')),
+    );
+  }
+
+  void _showMoreSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MoreSheet(
+        userName: _userName,
+        userEmail: _userEmail,
+        nmlsId: _nmlsId,
+        state: _state,
+        initial: _initial,
+        onSignOut: () {
+          Navigator.of(context).pop();
+          Navigator.of(context).pop();
+        },
+        onHowItWorks: () {
+          Navigator.of(context).pop();
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => HowItWorksScreen()),
+          );
+        },
+      ),
+    );
   }
 
   Widget _loadingView() => const Center(child: SizedBox(
@@ -513,856 +883,45 @@ class _DashboardScreenState extends State<DashboardScreen>
   ));
 }
 
-// ─── Profile Bottom Sheet ─────────────────────────────────────────────
-class _ProfileSheet extends StatelessWidget {
-  final String userName, userEmail, nmlsId, state, initial;
-  final VoidCallback onSignOut;
-  final VoidCallback onHowItWorks;
-  const _ProfileSheet({required this.userName, required this.userEmail,
-      required this.nmlsId, required this.state, required this.initial,
-      required this.onSignOut, required this.onHowItWorks});
 
+
+// Add _StatCard widget
+class _StatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  const _StatCard({required this.label, required this.value});
   @override
-  Widget build(BuildContext context) {
-    final fields = [
-      {'label': 'Full Name',     'value': userName},
-      {'label': 'Email Address', 'value': userEmail.isNotEmpty ? userEmail : '—'},
-      {'label': 'NMLS ID',       'value': nmlsId},
-      {'label': 'License State', 'value': state},
-    ];
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(24)),
-      padding: const EdgeInsets.all(24),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 40, height: 4,
-            decoration: BoxDecoration(color: kBorder, borderRadius: BorderRadius.circular(99))),
-        const SizedBox(height: 20),
-        _Avatar(initial: initial, size: 64),
-        const SizedBox(height: 12),
-        Text(userName, style: const TextStyle(
-            fontSize: 18, fontWeight: FontWeight.w900, color: kDark, letterSpacing: -0.3)),
-        const SizedBox(height: 4),
-        Text(userEmail, style: const TextStyle(fontSize: 13, color: kMuted, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 20),
-        ...fields.map((f) => Column(children: [
-          Padding(padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(f['label']!, style: const TextStyle(fontSize: 13, color: kMuted, fontWeight: FontWeight.w700)),
-              Text(f['value']!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: kDark)),
-            ])),
-          const Divider(color: kBorder, height: 1),
-        ])),
-        const SizedBox(height: 20),
-        SizedBox(width: double.infinity,
-          child: OutlinedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => EditProfileScreen(
-                    userName: userName,
-                    userEmail: userEmail,
-                    userPhone: '', // TODO: fetch phone from user/profile
-                    userAddress: '', // TODO: fetch address from user/profile
-                    state: state,
-                    licenseGoal: '', // TODO: fetch license goal from user/profile
-                  ),
-                ),
-              );
-            },
-            style: OutlinedButton.styleFrom(foregroundColor: kBlue,
-                side: const BorderSide(color: kBlue),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            child: const Text('Edit Profile', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)))),
-        const SizedBox(height: 8),
-        SizedBox(width: double.infinity,
-          child: OutlinedButton(
-            onPressed: onSignOut,
-            style: OutlinedButton.styleFrom(foregroundColor: kMuted,
-                side: const BorderSide(color: kBorder),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            child: const Text('Sign Out', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900)))),
-        const SizedBox(height: 8),
-      ]),
-    );
-  }
-}
-
-// ─── Sidebar Drawer ───────────────────────────────────────────────────
-class _SidebarDrawer extends StatelessWidget {
-  final VoidCallback onCertificatesTap;
-  const _SidebarDrawer({required this.onCertificatesTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: Container(
-        width: 320,
-        decoration: BoxDecoration(
-          color: kDark,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(24),
-            bottomLeft: Radius.circular(24),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 24,
-              offset: Offset(-4, 0),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              decoration: BoxDecoration(
-                color: kDark,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Menu',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 22,
-                      color: kBlue,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  Text('Access your certificates and more',
-                    style: TextStyle(
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w400,
-                      fontSize: 13,
-                      color: kWhite,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(color: kBorder, height: 1),
-            ListTile(
-              leading: Icon(Icons.workspace_premium_outlined, color: kBlue, size: 24),
-              title: Text('My Certificates',
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
-                  color: kWhite,
-                ),
-              ),
-              onTap: onCertificatesTap,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              tileColor: Colors.transparent,
-              hoverColor: kBlueFaint,
-            ),
-            // ...add more menu items here if needed...
-            Spacer(),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-              child: Text('© Relstone 2026',
-                style: TextStyle(
+  Widget build(BuildContext context) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF122232),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(value,
+              style: const TextStyle(
                   fontFamily: 'Poppins',
                   fontWeight: FontWeight.w400,
-                  fontSize: 12,
-                  color: kMuted,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class MyCertificatesScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: kDark,
-        elevation: 0,
-        title: Text('My Certificates',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w700,
-            fontSize: 22,
-            color: kBlue,
-            letterSpacing: -0.2,
-          ),
-        ),
-      ),
-      backgroundColor: Colors.black,
-      body: ListView(
-        padding: EdgeInsets.all(16),
-        children: [
-          Container(
-            margin: EdgeInsets.only(bottom: 18),
-            padding: EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: kBlueBorder),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.info_outline, color: kBlue, size: 22),
-                    SizedBox(width: 10),
-                    Text('Certificate Submission Instructions',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        color: kBlue,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: kBlueBorder),
-                  ),
-                  child: Text(
-                    '1. Download your certificate.\n2. Log in to your state commission portal.\n3. Upload the PDF certificate.\n4. Contact Relstone for support if needed.',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      color: kWhite,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _CertificateCard(
-            courseTitle: 'Mortgage Fundamentals',
-            studentName: 'John Doe',
-            hours: 8,
-            completionDate: '06/10/2026',
-            approvalNumber: '123456',
-            imagePath: 'assets/images/sample_cert.webp',
-            pdfUrl: 'https://your-server.com/certificates/mortgage_fundamentals.pdf',
-          ),
-          _CertificateCard(
-            courseTitle: 'Ethics in Lending',
-            studentName: 'John Doe',
-            hours: 4,
-            completionDate: '03/15/2026',
-            approvalNumber: '654321',
-            imagePath: 'assets/images/sample_cert.webp',
-            pdfUrl: 'https://your-server.com/certificates/ethics_in_lending.pdf',
-          ),
-          _CertificateCard(
-            courseTitle: 'Federal Law & Regulations',
-            studentName: 'John Doe',
-            hours: 6,
-            completionDate: '02/28/2026',
-            approvalNumber: '789012',
-            imagePath: 'assets/images/sample_cert.webp',
-            pdfUrl: 'https://your-server.com/certificates/federal_law_regulations.pdf',
-          ),
+                  fontSize: 22,
+                  color: kBlue)),
+          const SizedBox(height: 4),
+          Text(label,
+              style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w400,
+                  fontSize: 11,
+                  color: Color(0xFF7D92A3))),
         ],
       ),
-    );
-  }
-}
-
-class _CertificateCard extends StatelessWidget {
-  final String courseTitle;
-  final String studentName;
-  final int hours;
-  final String completionDate;
-  final String approvalNumber;
-  final String imagePath;
-  final String pdfUrl;
-
-  const _CertificateCard({
-    required this.courseTitle,
-    required this.studentName,
-    required this.hours,
-    required this.completionDate,
-    required this.approvalNumber,
-    required this.imagePath,
-    required this.pdfUrl,
-  });
-
-  void _downloadPdf(BuildContext context) async {
-    final uri = Uri.parse(pdfUrl);
-    if (Theme.of(context).platform == TargetPlatform.android || Theme.of(context).platform == TargetPlatform.iOS) {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to open PDF.')),
-        );
-      }
-    } else {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: kDark,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: kBlueBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 16,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(courseTitle,
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
-              color: kBlue,
-            ),
-          ),
-          SizedBox(height: 8),
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: kBlueBorder),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                imagePath,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: 120,
-                errorBuilder: (context, error, stackTrace) => Center(
-                  child: Text('Sample Certificate Image',
-                    style: TextStyle(
-                      fontFamily: 'JetBrainsMono',
-                      color: kWhite,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(height: 12),
-          Text('Student: $studentName', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
-          Text('Course: $courseTitle', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
-          Text('Hours: $hours', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
-          Text('Completion Date: $completionDate', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
-          Text('State Approval #: $approvalNumber', style: TextStyle(fontFamily: 'Poppins', color: kWhite, fontSize: 14)),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kBlue,
-                  foregroundColor: kWhite,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                onPressed: () => _downloadPdf(context),
-                child: Text('Download PDF'),
-              ),
-              SizedBox(width: 8),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kBlue,
-                  foregroundColor: kWhite,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                onPressed: () {},
-                child: Text('Share to LinkedIn'),
-              ),
-            ],
-          ),
-          SizedBox(height: 8),
-          Container(
-            height: 40,
-            width: 120,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(child: Text('Relstone Seal',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                color: kBlue,
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
-            )),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Completion Row ───────────────────────────────────────────────────
-class _CompletionRow extends StatelessWidget {
-  final Map<String, dynamic> item;
-  const _CompletionRow({required this.item});
-
-  String _fmt(String? iso) {
-    if (iso == null) return '-';
-    try { final d = DateTime.parse(iso); return '${d.month}/${d.day}/${d.year}'; }
-    catch (_) { return iso; }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final course = item['course'] is Map
-        ? Map<String, dynamic>.from(item['course'] as Map)
-        : item['course_id'] is Map
-            ? Map<String, dynamic>.from(item['course_id'] as Map)
-            : <String, dynamic>{};
-    final title   = course['title']        as String? ?? 'Course';
-    final type    = (course['type']        as String? ?? '').toUpperCase();
-    final hrs     = course['credit_hours'] ?? 0;
-    final date    = _fmt(item['completed_at'] as String?);
-    final certUrl = item['certificate_url'] as String?;
-    final isPE    = type == 'PE';
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0x050B1220),
-          borderRadius: BorderRadius.circular(16), border: Border.all(color: kBorder)),
-      child: Row(children: [
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: Text(title, style: const TextStyle(
-                fontWeight: FontWeight.w900, color: kDark, fontSize: 13))),
-            const SizedBox(width: 8),
-            _TypeBadge(type: type, isPE: isPE),
-          ]),
-          const SizedBox(height: 6),
-          Wrap(spacing: 12, children: [
-            _MetaChip(icon: Icons.access_time_outlined, label: '$hrs hrs'),
-            _MetaChip(icon: Icons.check_circle_outline, label: date, color: kTeal),
-            if (certUrl != null)
-              _MetaChip(icon: Icons.workspace_premium_outlined, label: 'Certificate', color: kAmber),
-          ]),
-        ])),
-        const SizedBox(width: 8),
-        const Icon(Icons.chevron_right, size: 18, color: kMuted),
-      ]),
-    );
-  }
-}
-
-// ─── Transcript Row ───────────────────────────────────────────────────
-class _TranscriptRow extends StatelessWidget {
-  final Map<String, dynamic> item;
-  const _TranscriptRow({required this.item});
-
-  String _fmt(String? iso) {
-    if (iso == null) return '-';
-    try { final d = DateTime.parse(iso); return '${d.month}/${d.day}/${d.year}'; }
-    catch (_) { return iso; }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final course = item['course'] is Map
-        ? Map<String, dynamic>.from(item['course'] as Map)
-        : item['course_id'] is Map
-            ? Map<String, dynamic>.from(item['course_id'] as Map)
-            : <String, dynamic>{};
-    final title   = course['title']          as String? ?? 'Course';
-    final nmlsId  = course['nmls_course_id'] as String? ?? '—';
-    final type    = (course['type']          as String? ?? '').toUpperCase();
-    final hrs     = course['credit_hours']   ?? 0;
-    final date    = _fmt(item['completed_at'] as String?);
-    final certUrl = item['certificate_url']  as String?;
-    final isPE    = type == 'PE';
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: kWhite,
-          borderRadius: BorderRadius.circular(16), border: Border.all(color: kBorder)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Text(title, style: const TextStyle(
-              fontWeight: FontWeight.w900, color: kDark, fontSize: 13))),
-          _TypeBadge(type: type, isPE: isPE),
-        ]),
-        const SizedBox(height: 8),
-        Wrap(spacing: 16, runSpacing: 6, children: [
-          _MetaChip(icon: Icons.tag, label: nmlsId),
-          _MetaChip(icon: Icons.access_time_outlined, label: '$hrs hrs'),
-          _MetaChip(icon: Icons.check_circle_outline, label: date, color: kTeal),
-          if (certUrl != null)
-            _MetaChip(icon: Icons.workspace_premium_outlined, label: 'Certificate', color: kAmber),
-        ]),
-      ]),
-    );
-  }
-}
-
-// ── Order Card ───────────────────────────────────────────────────────
-class _OrderCard extends StatelessWidget {
-  final Map<String, dynamic> order;
-  const _OrderCard({required this.order});
-
-  String _fmtDate(String? iso) {
-    if (iso == null) return '-';
-    try {
-      final d = DateTime.parse(iso).toLocal();
-      const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      return '${m[d.month-1]} ${d.day}, ${d.year}';
-    } catch (_) { return iso; }
-  }
-
-  Color _statusColor(String s) {
-    switch (s.toLowerCase()) {
-      case 'paid': case 'completed': case 'success': return kTeal;
-      case 'pending': return kAmber;
-      default: return const Color(0xFFC0392B);
-    }
-  }
-  Color _statusBg(String s) {
-    switch (s.toLowerCase()) {
-      case 'paid': case 'completed': case 'success': return kTealFaint;
-      case 'pending': return kAmberFaint;
-      default: return const Color(0x1AC0392B);
-    }
-  }
-  Color _statusBorder(String s) {
-    switch (s.toLowerCase()) {
-      case 'paid': case 'completed': case 'success': return kTealBorder;
-      case 'pending': return kAmberBorder;
-      default: return const Color(0x38C0392B);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final status  = (order['status']  as String?) ?? 'pending';
-    final total   = order['total_amount'] ?? 0;
-    final date    = _fmtDate(order['createdAt'] as String?);
-    final orderId = (order['_id']     as String?) ?? '';
-    final shortId = orderId.length > 6 ? orderId.substring(orderId.length - 6).toUpperCase() : orderId.toUpperCase();
-    final items   = (order['items']   as List?) ?? [];
-
-    return Container(
-      decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: kBorder),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
-        Padding(padding: const EdgeInsets.all(14), child: Row(children: [
-          const Icon(Icons.receipt_long_outlined, size: 16, color: kDark),
-          const SizedBox(width: 8),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Order #$shortId', style: const TextStyle(
-                fontWeight: FontWeight.w900, color: kDark, fontSize: 14)),
-            const SizedBox(height: 2),
-            Row(children: [
-              const Icon(Icons.access_time_outlined, size: 13, color: kMuted),
-              const SizedBox(width: 4),
-              Text(date, style: const TextStyle(fontSize: 12, color: kMuted, fontWeight: FontWeight.w700)),
-            ]),
-          ])),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: _statusBg(status),
-                borderRadius: BorderRadius.circular(99),
-                border: Border.all(color: _statusBorder(status))),
-            child: Text(status[0].toUpperCase() + status.substring(1),
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900,
-                    color: _statusColor(status))),
-          ),
-        ])),
-
-        if (items.isNotEmpty) ...[
-          const Divider(color: kBorder, height: 1),
-          ...items.map((item) {
-            final courseData = item['course_id'];
-            final course = courseData is Map ? Map<String, dynamic>.from(courseData) : <String, dynamic>{};
-            final title   = course['title'] as String? ?? 'Course';
-            final textbook = item['include_textbook'] == true;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(children: [
-                const Icon(Icons.menu_book_outlined, size: 15, color: kMuted),
-                const SizedBox(width: 10),
-                Expanded(child: Text(title, style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700, color: kDark))),
-                if (textbook)
-                  Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: const Color(0x0A020817),
-                        border: Border.all(color: kBorder),
-                        borderRadius: BorderRadius.circular(99)),
-                    child: const Text('+ Textbook',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: kMuted))),
-              ]),
-            );
-          }),
-        ],
-
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: const BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
-          child: Text('Total:  \$${total is num ? total.toStringAsFixed(2) : total}',
-              style: const TextStyle(fontWeight: FontWeight.w800, color: kDark, fontSize: 14)),
-        ),
-      ]),
-    );
-  }
-}
-
-// ─── Small widgets ────────────────────────────────────────────────────
-class _TypeBadge extends StatelessWidget {
-  final String type; final bool isPE;
-  const _TypeBadge({required this.type, required this.isPE});
-  @override
-  Widget build(BuildContext context) {
-    if (type.isEmpty) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: isPE ? kBlueFaint : kTealFaint,
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: isPE ? kBlueBorder : kTealBorder),
-      ),
-      child: Text(type, style: TextStyle(
-          fontSize: 11, fontWeight: FontWeight.w900, color: isPE ? kBlue : kTeal)),
-    );
-  }
-}
-
-class _MetaChip extends StatelessWidget {
-  final IconData icon; final String label; final Color color;
-  const _MetaChip({required this.icon, required this.label, this.color = kMuted});
-  @override
-  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
-    Icon(icon, size: 12, color: color),
-    const SizedBox(width: 4),
-    Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w700)),
-  ]);
-}
-
-class _TabBtn extends StatelessWidget {
-  final String label; final bool active; final VoidCallback onTap;
-  const _TabBtn({required this.label, required this.active, required this.onTap});
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        color: kWhite,
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: active ? kBlueBorder : kBorder),
-        boxShadow: active ? [BoxShadow(color: kBlue.withValues(alpha: 0.18), blurRadius: 12, spreadRadius: 2)] : null,
-      ),
-      child: Text(label, style: TextStyle(
-          fontSize: 13, fontWeight: FontWeight.w900,
-          color: active ? kDark : kMuted)),
     ),
   );
 }
 
-class _PanelHeader extends StatelessWidget {
-  final String title, actionLabel; final VoidCallback onAction;
-  const _PanelHeader({required this.title, required this.actionLabel, required this.onAction});
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-    Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: kDark, fontSize: 14)),
-    GestureDetector(onTap: onAction,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(color: const Color(0x05020817),
-            border: Border.all(color: kBorder), borderRadius: BorderRadius.circular(99)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(actionLabel, style: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w900, color: kMuted)),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, size: 16, color: kMuted),
-        ]),
-      )),
-  ]);
-}
-
-class _ActionCard extends StatelessWidget {
-  final IconData icon; final String title, subtitle; final VoidCallback onTap;
-  const _ActionCard({required this.icon, required this.title, required this.subtitle, required this.onTap});
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0x050B1220),
-          borderRadius: BorderRadius.circular(16), border: Border.all(color: kBorder)),
-      child: Row(children: [
-        Container(width: 40, height: 40,
-            decoration: BoxDecoration(color: kBlueFaint, borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: kBlueBorder)),
-            child: Icon(icon, color: kDark, size: 18)),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: kDark, fontSize: 13)),
-          const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: kMuted, fontWeight: FontWeight.w700)),
-        ])),
-        const Icon(Icons.chevron_right, size: 18, color: kMuted),
-      ]),
-    ),
-  );
-}
-
-class _ProfileChip extends StatelessWidget {
-  final IconData icon; final String label;
-  const _ProfileChip({required this.icon, required this.label});
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(99),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-    ),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, color: kBlue, size: 13), const SizedBox(width: 6),
-      Text(label, style: const TextStyle(
-          color: Color(0xE0FFFFFF), fontSize: 12, fontWeight: FontWeight.w700)),
-    ]),
-  );
-}
-
-class _KpiCard extends StatelessWidget {
-  final IconData icon; final String title, value, caption; final String tone;
-  const _KpiCard({required this.icon, required this.title, required this.value,
-      required this.caption, this.tone = 'blue'});
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.10),
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-    ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Container(width: 34, height: 34,
-          decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-              borderRadius: BorderRadius.circular(12)),
-          child: Icon(icon, color: kWhite, size: 16)),
-      const SizedBox(height: 8),
-      Text(title, style: const TextStyle(
-          color: Color(0xBFFFFFFF), fontWeight: FontWeight.w800, fontSize: 10),
-          maxLines: 2, overflow: TextOverflow.ellipsis),
-      const SizedBox(height: 2),
-      Text(value, style: const TextStyle(
-          color: kWhite, fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: -0.4)),
-      Text(caption, style: const TextStyle(
-          color: Color(0xB3FFFFFF), fontWeight: FontWeight.w700, fontSize: 11)),
-    ]),
-  );
-}
-
-class _EmptyState extends StatelessWidget {
-  final IconData icon; final String title, subtitle, actionLabel;
-  final VoidCallback onAction;
-  const _EmptyState({required this.icon, required this.title,
-      required this.subtitle, required this.actionLabel, required this.onAction});
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: kBorder),
-      color: const Color(0x050B1220),
-    ),
-    child: Column(children: [
-      Container(width: 44, height: 44,
-          decoration: BoxDecoration(color: kBlueFaint, borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: kBlueBorder)),
-          child: Icon(icon, color: kDark, size: 18)),
-      const SizedBox(height: 10),
-      Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: kDark, fontSize: 14)),
-      const SizedBox(height: 6),
-      Text(subtitle, textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12, color: kMuted, fontWeight: FontWeight.w700, height: 1.5)),
-      const SizedBox(height: 14),
-      GestureDetector(onTap: onAction,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(color: kWhite, borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: kBorder)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(actionLabel, style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w900, color: kDark)),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 16, color: kDark),
-          ]),
-        )),
-    ]),
-  );
-}
-
-class _Avatar extends StatelessWidget {
-  final String initial; final double size;
-  const _Avatar({required this.initial, required this.size});
-  @override
-  Widget build(BuildContext context) => Container(
-    width: size, height: size,
-    decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [kDark, Color(0xFF0B2A3A)],
-            begin: Alignment.topLeft, end: Alignment.bottomRight),
-        shape: BoxShape.circle),
-    child: Center(child: Text(initial, style: const TextStyle(
-        color: kBlue, fontWeight: FontWeight.w900, fontSize: 15))),
-  );
-}
-
-class _GlowPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()
-      ..shader = RadialGradient(center: const Alignment(-0.6, -0.5), radius: 1.2,
-          colors: [kBlue.withValues(alpha: 0.18), Colors.transparent])
-          .createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
-  }
-  @override bool shouldRepaint(_) => false;
-}
-
-
+// Move all custom widgets above their first usage and ensure correct scope
+// Remove duplicate _buildQuickActions at the bottom
+// For quick actions, use closures to capture correct context and instance methods
+// All custom widgets (_SidebarDrawer, MyCertificatesScreen, _TabBtn, _EmptyState, _CompletionRow, _TranscriptRow, _OrderCard, _MoreSheet) are now defined above their first usage and in the correct scope.
+// _buildQuickActions is only defined as a method inside _DashboardScreenState and uses closures for context and instance methods.
