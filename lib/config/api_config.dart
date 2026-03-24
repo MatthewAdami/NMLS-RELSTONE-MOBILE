@@ -21,6 +21,11 @@ class ApiConfig {
 
   // Auth
   static String get login => "$baseUrl$apiPrefix/auth/login";
+  static String get loginLocalFallback => "http://127.0.0.1:5000$apiPrefix/auth/login";
+  static List<String> get loginCandidates {
+    final endpoints = <String>[login, loginLocalFallback];
+    return endpoints.toSet().toList();
+  }
   static String get register => "$baseUrl$apiPrefix/auth/register";
   static String get forgotPassword => "$baseUrl$apiPrefix/auth/forgot-password";
   static String get resetPassword => "$baseUrl$apiPrefix/auth/reset-password";
