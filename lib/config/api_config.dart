@@ -1,8 +1,12 @@
 class ApiConfig {
   // ✅ Choose ONE depending on how you run your app:
 
-  // Web browser (Edge, Chrome, etc.)
-  static const String baseUrl = "http://localhost:3000";
+    // Web browser (Edge, Chrome, etc.)
+    // Override when needed: flutter run -d edge --dart-define=API_BASE_URL=http://localhost:5000
+    static const String baseUrl = String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: 'http://localhost:5000',
+    );
 
   // Android Emulator:
   // static const String baseUrl = "http://10.0.2.2:3000";
