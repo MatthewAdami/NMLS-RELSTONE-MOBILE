@@ -13,9 +13,15 @@ const kBorder      = Color(0x1A020817);
 const kSurface     = Color(0xD0FFFFFF);
 
 class ExamPrepScreen extends StatefulWidget {
+  final String? token;
   final String userName;
   final String userEmail;
-  const ExamPrepScreen({Key? key, this.userName = 'User', this.userEmail = 'user@example.com'}) : super(key: key);
+  const ExamPrepScreen({
+    Key? key,
+    this.token,
+    this.userName = 'User',
+    this.userEmail = 'user@example.com',
+  }) : super(key: key);
 
   @override
   State<ExamPrepScreen> createState() => _ExamPrepScreenState();
@@ -44,6 +50,7 @@ class _ExamPrepScreenState extends State<ExamPrepScreen> {
               activeTab: AppNavTab.examPrep,
               userName: widget.userName,
               userEmail: widget.userEmail,
+              token: widget.token,
             ),
           ],
         ),

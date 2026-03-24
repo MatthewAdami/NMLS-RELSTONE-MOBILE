@@ -16,9 +16,15 @@ const kBorder      = Color(0x1A020817);
 const kSurface     = Color(0xD0FFFFFF);
 
 class CETrackerScreen extends StatefulWidget {
+  final String? token;
   final String userName;
   final String userEmail;
-  const CETrackerScreen({Key? key, this.userName = 'User', this.userEmail = 'user@example.com'}) : super(key: key);
+  const CETrackerScreen({
+    Key? key,
+    this.token,
+    this.userName = 'User',
+    this.userEmail = 'user@example.com',
+  }) : super(key: key);
 
   @override
   State<CETrackerScreen> createState() => _CETrackerScreenState();
@@ -47,6 +53,7 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
               activeTab: AppNavTab.ceTracker,
               userName: widget.userName,
               userEmail: widget.userEmail,
+              token: widget.token,
             ),
           ],
         ),
@@ -347,7 +354,11 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
                 elevation: 0,
               ),
               onPressed: () {
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => CoursesScreen(userName: widget.userName, userEmail: widget.userEmail)));
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => CoursesScreen(
+                  token: widget.token,
+                  userName: widget.userName,
+                  userEmail: widget.userEmail,
+                )));
               },
               child: const Text(
                 'Browse More CE Courses',

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:nmls_mobile/config/api_config.dart';
 import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
@@ -27,6 +30,68 @@ class _CoursesScreenState extends State<CoursesScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   int _tabIndex = 0; // 0 = In Progress, 1 = Completed, 2 = Wishlist
   String _activeFilter = 'All States';
+  bool _loading = true;
+  String _error = '';
+  List<Map<String, dynamic>> _courses = [];
+
+  String get _apiBase => '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}';
+  Map<String, String> get _headers => {
+    'Content-Type': 'application/json',
+    if (widget.token != null) 'Authorization': 'Bearer ${widget.token}',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(() => setState(() {}));
+    _fetchCourses();
+  }
+
+  Future<void> _fetchCourses() async {
+    if (widget.token == null || widget.token!.isEmpty) {
+      setState(() {
+        _loading = false;
+        _error = 'Missing session token. Please sign in again.';
+        _courses = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
+
+    try {
+      final res = await http
+          .get(Uri.parse('$_apiBase/courses'), headers: _headers)
+          .timeout(const Duration(seconds: 12));
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final list = decoded is List ? decoded : const [];
+        setState(() {
+          _courses = list
+              .whereType<Map>()
+              .map((raw) => Map<String, dynamic>.from(raw))
+              .toList();
+          _loading = false;
+        });
+      } else {
+        setState(() {
+          _loading = false;
+          _courses = [];
+          _error = 'Could not load courses (${res.statusCode}).';
+        });
+      }
+    } catch (_) {
+      setState(() {
+        _loading = false;
+        _courses = [];
+        _error = 'Could not connect to courses service.';
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -45,12 +110,17 @@ class _CoursesScreenState extends State<CoursesScreen> {
             _buildTabs(),
             _buildFilters(),
             Expanded(
-              child: _buildCourseList(),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: kBlue))
+                  : _error.isNotEmpty
+                      ? _buildErrorView()
+                      : _buildCourseList(),
             ),
             AppBottomNav(
               activeTab: AppNavTab.courses,
               userName: widget.userName,
               userEmail: widget.userEmail,
+              token: widget.token,
             ),
           ],
         ),
@@ -204,69 +274,39 @@ class _CoursesScreenState extends State<CoursesScreen> {
 
   // ─── Course List ───────────────────────────────────────────────────
   Widget _buildCourseList() {
-    List<Map<String, dynamic>> items = [];
+    final search = _searchCtrl.text.trim().toLowerCase();
+    final wantedStatus = _tabIndex == 0
+        ? 'in_progress'
+        : _tabIndex == 1
+            ? 'completed'
+            : 'wishlist';
 
-    if (_tabIndex == 0) {
-      // IN PROGRESS
-      items = [
-        {
-          'title': 'Real Estate Principles',
-          'subtitle': 'CA License · 45 hrs · 2 days ago',
-          'icon': Icons.menu_book,
-          'progress': 0.72,
-          'action': 'Resume',
-        },
-        {
-          'title': 'Mortgage Brokerage Basics',
-          'subtitle': 'TX License · 30 hrs · 5 days ago',
-          'icon': Icons.feed_outlined, // approximate icon
-          'progress': 0.38,
-          'action': 'Resume',
-        },
-        {
-          'title': 'CE: Ethics & Conduct',
-          'subtitle': 'CA CE · 3 hrs · 1 week ago',
-          'icon': Icons.schedule,
-          'progress': 0.15,
-          'action': 'Resume',
-        },
-      ];
-    } else if (_tabIndex == 1) {
-      // COMPLETED
-      items = [
-        {
-          'title': 'Real Estate Practice',
-          'subtitle': 'CA License · 45 hrs · Completed Oct 2025',
-          'icon': Icons.check_circle_outline,
-          'progress': 1.0,
-          'action': 'Certificate',
-        },
-        {
-          'title': 'CE: Fair Housing',
-          'subtitle': 'CA CE · 2 hrs · Completed Jan 2026',
-          'icon': Icons.check_circle_outline,
-          'progress': 1.0,
-          'action': 'Certificate',
-        },
-      ];
-    } else {
-      // WISHLIST
-      items = [
-        {
-          'title': 'Advanced Property Management',
-          'subtitle': 'CA License · 12 hrs · Added 2 days ago',
-          'icon': Icons.favorite_border,
-          'progress': 0.0,
-          'action': 'Enroll',
-        },
-        {
-          'title': 'Commercial Real Estate Basics',
-          'subtitle': 'All States · 8 hrs · Added 1 month ago',
-          'icon': Icons.favorite_border,
-          'progress': 0.0,
-          'action': 'Enroll',
-        },
-      ];
+    final items = _courses.where((course) {
+      final status = (course['enrollment_status'] as String? ?? 'in_progress').toLowerCase();
+      if (status != wantedStatus) return false;
+
+      final states = ((course['states_approved'] as List?) ?? const [])
+          .map((e) => e.toString().toUpperCase())
+          .toList();
+      final type = (course['type'] as String? ?? '').toUpperCase();
+
+      if (_activeFilter == 'California' && !states.contains('CA')) return false;
+      if (_activeFilter == 'Texas' && !states.contains('TX')) return false;
+      if (_activeFilter == 'CE Only' && type != 'CE') return false;
+
+      if (search.isEmpty) return true;
+      final title = (course['title'] as String? ?? '').toLowerCase();
+      final description = (course['description'] as String? ?? '').toLowerCase();
+      return title.contains(search) || description.contains(search);
+    }).toList();
+
+    if (items.isEmpty) {
+      return const Center(
+        child: Text(
+          'No assigned courses found for this tab.',
+          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500),
+        ),
+      );
     }
 
     return ListView.separated(
@@ -275,11 +315,26 @@ class _CoursesScreenState extends State<CoursesScreen> {
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final course = items[index];
-        final progress = (course['progress'] as double);
-        final title = course['title'] as String;
-        final subtitle = course['subtitle'] as String;
-        final actionText = course['action'] as String;
-        final icon = course['icon'] as IconData;
+        final progress = ((course['progress_percent'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
+        final title = course['title'] as String? ?? 'Untitled Course';
+        final states = ((course['states_approved'] as List?) ?? const [])
+            .map((e) => e.toString().toUpperCase())
+            .toList();
+        final stateText = states.isEmpty ? 'All States' : states.first;
+        final hours = (course['credit_hours'] as num?)?.toInt() ?? 0;
+        final status = (course['enrollment_status'] as String? ?? 'in_progress').toLowerCase();
+        final subtitle = '$stateText · $hours hrs';
+        final actionText = status == 'completed'
+            ? 'Certificate'
+            : status == 'wishlist'
+                ? 'Enroll'
+                : 'Resume';
+        final type = (course['type'] as String? ?? '').toUpperCase();
+        final icon = type == 'CE'
+            ? Icons.schedule
+            : type == 'EXAM_PREP'
+                ? Icons.assignment_outlined
+                : Icons.menu_book;
 
         // Custom styling logic for the UI image matches
         Color titleColor = kDark;
@@ -287,18 +342,18 @@ class _CoursesScreenState extends State<CoursesScreen> {
         Color progressBgColor = kBlue.withValues(alpha: 0.15);
         Color textColor;
         
-        if (progress == 0.72) {
-          progressColor = kBlue;
-          textColor = kBlue;
-        } else if (progress == 1.0) {
+        if (progress >= 1.0 || status == 'completed') {
           progressColor = kTeal;
           progressBgColor = kTeal.withValues(alpha: 0.15);
           textColor = kTeal;
-        } else if (progress > 0) {
-          progressColor = const Color(0xFF6B8397);
+        } else if (progress > 0 || status == 'in_progress') {
+          progressColor = kBlue;
+          textColor = kBlue;
+        } else if (status == 'wishlist') {
+          progressColor = Colors.transparent;
           textColor = const Color(0xFF6B8397);
         } else {
-          progressColor = Colors.transparent;
+          progressColor = const Color(0xFF6B8397);
           textColor = const Color(0xFF6B8397);
         }
 
@@ -353,8 +408,8 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   ),
                 ],
               ),
-              if (_tabIndex != 2) const SizedBox(height: 16),
-              if (_tabIndex != 2)
+              if (status != 'wishlist') const SizedBox(height: 16),
+              if (status != 'wishlist')
                 ClipRRect(
                   borderRadius: BorderRadius.circular(99),
                   child: LinearProgressIndicator(
@@ -368,7 +423,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (_tabIndex != 2)
+                  if (status != 'wishlist')
                     Text(
                       '${(progress * 100).toInt()}% complete',
                       style: TextStyle(
@@ -406,6 +461,34 @@ class _CoursesScreenState extends State<CoursesScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _error,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w600,
+                color: kMuted,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _fetchCourses,
+              style: ElevatedButton.styleFrom(backgroundColor: kBlue),
+              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
