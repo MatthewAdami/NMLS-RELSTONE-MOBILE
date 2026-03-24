@@ -23,7 +23,13 @@ class ApiConfig {
   static String get login => "$baseUrl$apiPrefix/auth/login";
   static String get loginLocalFallback => "http://127.0.0.1:5000$apiPrefix/auth/login";
   static List<String> get loginCandidates {
-    final endpoints = <String>[login, loginLocalFallback];
+    final hostBased = 'http://${Uri.base.host}:5000$apiPrefix/auth/login';
+    final endpoints = <String>[
+      login,
+      hostBased,
+      loginLocalFallback,
+      'http://localhost:5000$apiPrefix/auth/login',
+    ];
     return endpoints.toSet().toList();
   }
   static String get register => "$baseUrl$apiPrefix/auth/register";
