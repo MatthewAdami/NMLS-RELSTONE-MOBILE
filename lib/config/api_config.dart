@@ -15,8 +15,33 @@ class ApiConfig {
 
   static const String apiPrefix = "/api";
 
-  // ✅ Your Node routes (based on server.js: app.use('/api/auth', ...))
+    // Auth
   static String get login => "$baseUrl$apiPrefix/auth/login";
   static String get register => "$baseUrl$apiPrefix/auth/register";
+    static String get forgotPassword => "$baseUrl$apiPrefix/auth/forgot-password";
+    static String get resetPassword => "$baseUrl$apiPrefix/auth/reset-password";
+    static String get resendCode => "$baseUrl$apiPrefix/auth/resend-code";
+
+    // States
+    static String get stateRequirements => "$baseUrl$apiPrefix/states/requirements";
+    static String stateRequirementDetail(String stateCode) =>
+      "$baseUrl$apiPrefix/states/requirements/$stateCode";
+
+    // Resources
+    static String get resources => "$baseUrl$apiPrefix/resources";
+    static String resourceDetail(String articleId) =>
+      "$baseUrl$apiPrefix/resources/$articleId";
+    static String get newsletterSubscribe =>
+      "$baseUrl$apiPrefix/resources/newsletter-subscribe";
+
+    // Exam prep
+    static String get examPrepQuestions => "$baseUrl$apiPrefix/exam-prep/questions";
+    static String get examPrepAnalytics => "$baseUrl$apiPrefix/exam-prep/analytics";
+    static String get examPrepAttempt => "$baseUrl$apiPrefix/exam-prep/attempt";
+
+    // Notifications
+    static String get notifications => "$baseUrl$apiPrefix/notifications";
+
+    // Health
   static String get health => "$baseUrl$apiPrefix/health";
 }
