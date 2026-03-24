@@ -17,6 +17,14 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        fontFamily: 'Poppins',
+        // Optionally set icon theme and text theme for consistency
+        iconTheme: IconThemeData(color: Colors.black),
+        textTheme: Theme.of(context).textTheme.apply(
+          fontFamily: 'Poppins',
+        ),
+      ),
       initialRoute: '/login',
       routes: {
         '/login':           (context) => LoginScreen(),
