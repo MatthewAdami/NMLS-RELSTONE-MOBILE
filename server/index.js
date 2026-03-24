@@ -1,4 +1,5 @@
 const express = require('express');
+const http = require('http');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -33,7 +34,24 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/resources', resourcesRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
+const COMPAT_PORT = 3000;
 const MONGO_URI = process.env.MONGO_URI;
+
+function startServer(port, label) {
+  const server = http.createServer(app);
+
+  server.on('error', (error) => {
+    if (error?.code === 'EADDRINUSE') {
+      console.warn(`${label} server port ${port} is already in use`);
+      return;
+    }
+    console.error(`${label} server failed on port ${port}:`, error.message || error);
+  });
+
+  server.listen(port, () => {
+    console.log(`${label} server running on http://localhost:${port}`);
+  });
+}
 
 if (!MONGO_URI) {
   console.error('Missing MONGO_URI in .env');
@@ -44,9 +62,10 @@ mongoose
   .connect(MONGO_URI)
   .then(() => {
     console.log('Connected to MongoDB');
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
+    startServer(PORT, 'Primary');
+    if (COMPAT_PORT !== PORT) {
+      startServer(COMPAT_PORT, 'Compat');
+    }
   })
   .catch((error) => {
     console.error('Failed to connect to MongoDB:', error.message);
