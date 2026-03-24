@@ -2,9 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
-import 'package:nmls_mobile/how_it_works_screen.dart';
 import 'package:nmls_mobile/faq_screen.dart';
 import 'contact_support_page.dart';
+import 'package:nmls_mobile/ce_tracker_screen.dart';
+import 'package:nmls_mobile/exam_prep_screen.dart';
+import 'package:nmls_mobile/my_certificates_screen.dart';
+import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -68,11 +71,11 @@ class _SidebarDrawer extends StatelessWidget {
             }),
             _DrawerItem(icon: Icons.assignment, label: 'Exam Prep', onTap: () {
               Navigator.of(context).pop();
-              // Navigate to Exam Prep
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ExamPrepScreen(userName: userName, userEmail: userEmail)));
             }),
             _DrawerItem(icon: Icons.access_time, label: 'CE Tracker', onTap: () {
               Navigator.of(context).pop();
-              // Navigate to CE Tracker
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => CETrackerScreen(userName: userName, userEmail: userEmail)));
             }),
             const SizedBox(height: 20),
             Divider(color: Colors.white54),
@@ -123,94 +126,6 @@ class _DrawerItem extends StatelessWidget {
   }
 }
 
-// My Certificates screen (stub)
-class MyCertificatesScreen extends StatelessWidget {
-  const MyCertificatesScreen({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('My Certificates')),
-      body: Center(child: Text('Certificates content here')),
-    );
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-// More sheet at bottom
-class _MoreSheet extends StatelessWidget {
-  final String userName;
-  final String userEmail;
-  final String nmlsId;
-  final String state;
-  final String initial;
-  final VoidCallback onSignOut;
-  final VoidCallback onHowItWorks;
-  const _MoreSheet({required this.userName, required this.userEmail, required this.nmlsId, required this.state, required this.initial, required this.onSignOut, required this.onHowItWorks});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kWhite,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              color: kBlue,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.person, size: 40, color: kBlue),
-                ),
-                const SizedBox(height: 10),
-                Text(userName, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 18, color: kDark)),
-                Text(userEmail, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w400, fontSize: 14, color: kDark.withValues(alpha: 0.7))),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          ListTile(
-            leading: Icon(Icons.info_outline, color: kBlue),
-            title: Text('How it works', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 16)),
-            onTap: onHowItWorks,
-          ),
-          ListTile(
-            leading: Icon(Icons.support_agent, color: kBlue),
-            title: Text('Contact Support', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 16)),
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ContactSupportPage(userName: userName, userEmail: userEmail)));
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.logout, color: kBlue),
-            title: Text('Sign Out', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 16)),
-            onTap: onSignOut,
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-}
-
 // ── Main Dashboard Screen ─────────────────────────────────────────────
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic>? user;
@@ -226,8 +141,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // Tabs: 0=Overview, 1=Transcript, 2=Orders
-  int _tab = 0;
   late AnimationController _fadeCtrl;
   late Animation<double>   _fadeAnim;
 
@@ -245,11 +158,59 @@ class _DashboardScreenState extends State<DashboardScreen>
   Map<String, dynamic> get _profile =>
       Map<String, dynamic>.from(_dashboard?['profile'] as Map? ?? {});
 
-  String get _userName  => (_profile['name']    as String?) ?? (widget.user?['name']  as String?) ?? 'Student';
-  String get _userEmail => (_profile['email']   as String?) ?? (widget.user?['email'] as String?) ?? '';
+  String get _userName {
+    final profileFull = (_profile['full_name'] as String?)?.trim();
+    if (profileFull != null && profileFull.isNotEmpty) return profileFull;
+    final profileFullCamel = (_profile['fullName'] as String?)?.trim();
+    if (profileFullCamel != null && profileFullCamel.isNotEmpty) return profileFullCamel;
+
+    final profileName = (_profile['name'] as String?)?.trim();
+    if (profileName != null && profileName.isNotEmpty) return profileName;
+
+    final profileFirst = (_profile['first_name'] as String?)?.trim() ?? '';
+    final profileLast = (_profile['last_name'] as String?)?.trim() ?? '';
+    final profileCombined = '$profileFirst $profileLast'.trim();
+    if (profileCombined.isNotEmpty) return profileCombined;
+    final profileFirstCamel = (_profile['firstName'] as String?)?.trim() ?? '';
+    final profileLastCamel = (_profile['lastName'] as String?)?.trim() ?? '';
+    final profileCombinedCamel = '$profileFirstCamel $profileLastCamel'.trim();
+    if (profileCombinedCamel.isNotEmpty) return profileCombinedCamel;
+    final nestedProfile = _profile['user'] as Map?;
+    if (nestedProfile != null) {
+      final nestedName = (nestedProfile['full_name'] ??
+              nestedProfile['fullName'] ??
+              nestedProfile['name']) as String?;
+      final value = (nestedName ?? '').trim();
+      if (value.isNotEmpty) return value;
+    }
+
+    final userFull = (widget.user?['full_name'] as String?)?.trim();
+    if (userFull != null && userFull.isNotEmpty) return userFull;
+    final userFullCamel = (widget.user?['fullName'] as String?)?.trim();
+    if (userFullCamel != null && userFullCamel.isNotEmpty) return userFullCamel;
+
+    final userName = (widget.user?['name'] as String?)?.trim();
+    if (userName != null && userName.isNotEmpty) return userName;
+
+    final userFirst = (widget.user?['first_name'] as String?)?.trim() ?? '';
+    final userLast = (widget.user?['last_name'] as String?)?.trim() ?? '';
+    final userCombined = '$userFirst $userLast'.trim();
+    if (userCombined.isNotEmpty) return userCombined;
+    final userFirstCamel = (widget.user?['firstName'] as String?)?.trim() ?? '';
+    final userLastCamel = (widget.user?['lastName'] as String?)?.trim() ?? '';
+    final userCombinedCamel = '$userFirstCamel $userLastCamel'.trim();
+    if (userCombinedCamel.isNotEmpty) return userCombinedCamel;
+
+    return '';
+  }
+
+  String get _userEmail {
+    final profileEmail = (_profile['email'] ?? _profile['user_email']) as String?;
+    final userEmail = (widget.user?['email'] ?? widget.user?['user_email']) as String?;
+    return (profileEmail ?? userEmail ?? '').trim();
+  }
   String get _nmlsId    => (_profile['nmls_id'] as String?) ?? 'Not set';
   String get _state     => (_profile['state']   as String?) ?? 'Not set';
-  String get _initial   => _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U';
 
   List<Map<String, dynamic>> get _allCompletions {
     final pe = (_dashboard?['completions']?['PE'] as List?) ?? [];
@@ -301,16 +262,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  void _goToCourses(BuildContext context) {
-    Navigator.of(context).pushNamed('/courses');
-  }
-
-  void _switchTab(int index) {
-    setState(() {
-      _tab = index;
-    });
-  }
-
   // ── Build ─────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -318,17 +269,32 @@ class _DashboardScreenState extends State<DashboardScreen>
       key: _scaffoldKey,
       backgroundColor: kBg,
       endDrawer: _SidebarDrawer(onCertificatesTap: () {
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => MyCertificatesScreen()));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => MyCertificatesScreen(
+              userName: _userName,
+              userEmail: _userEmail,
+            ),
+          ),
+        );
       }, userName: _userName, userEmail: _userEmail),
       drawer: null,
       body: SafeArea(child: Column(children: [
         _buildTopBar(),
         Expanded(child: _loading
             ? _loadingView()
-            : _error.isNotEmpty
-                ? _errorView()
-                : _buildBody()),
-        _buildBottomNav(),
+            : _buildBody()),
+        AppBottomNav(
+          activeTab: AppNavTab.home,
+          userName: _userName,
+          userEmail: _userEmail,
+          nmlsId: _nmlsId,
+          state: _state,
+          onSignOut: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).pop();
+          },
+        ),
       ])),
     );
   }
@@ -418,6 +384,34 @@ class _DashboardScreenState extends State<DashboardScreen>
     child: SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: Column(children: [
+        if (_error.isNotEmpty)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0x1AC0392B),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0x38C0392B)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.wifi_off_rounded, color: Color(0xFFC0392B), size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Could not refresh dashboard data. Showing available UI.',
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: Color(0xFFC0392B),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         // MY LEARNING HEADER (left-aligned)
         Container(
           alignment: Alignment.centerLeft,
@@ -757,103 +751,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
 
 
-
-     // ── Bottom Nav ────────────────────────────────────────────────────
-    Widget _buildBottomNav() {
-    final items = [
-      {'icon': Icons.home_outlined,      'active': Icons.home_rounded,      'label': 'Home'},
-      {'icon': Icons.menu_book_outlined, 'active': Icons.menu_book_rounded, 'label': 'Courses'},
-      {'icon': Icons.assignment_outlined, 'active': Icons.assignment,        'label': 'Exam Prep'},
-      {'icon': Icons.access_time_outlined, 'active': Icons.access_time_filled, 'label': 'CE Tracker'},
-      {'icon': Icons.more_horiz,         'active': Icons.more_horiz,        'label': 'More'},
-    ];
-
-    bool isActive(int i) {
-      if (i == 0) return _tab == 0;
-      if (i == 1) return false; // Courses handled by navigation
-      if (i == 2) return false; // Exam Prep handled by navigation
-      if (i == 3) return false; // CE Tracker handled by navigation
-      // More is never active (no tab)
-      return false;
-    }
-
-    void onNavTap(int i) {
-      if (i == 0) { _switchTab(0); return; }
-      if (i == 1) { _goToCourses(context); return; }
-      if (i == 2) { _goToExamPrep(); return; }
-      if (i == 3) { _goToCETracker(); return; }
-      if (i == 4) { _showMoreSheet(); return; }
-    }
-
-    return Container(
-      decoration: const BoxDecoration(color: kSurface,
-          border: Border(top: BorderSide(color: kBorder))),
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(children: List.generate(items.length, (i) {
-        final active = isActive(i);
-        return Expanded(child: GestureDetector(
-          onTap: () => onNavTap(i),
-          behavior: HitTestBehavior.opaque,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                  color: active ? kBlueFaint : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10)),
-              child: Icon(
-                active ? items[i]['active'] as IconData : items[i]['icon'] as IconData,
-                color: active ? kBlue : const Color(0xFFBBBBBB), size: 20),
-            ),
-            const SizedBox(height: 3),
-            Text(items[i]['label'] as String, style: TextStyle(
-                fontSize: 10,
-                color: active ? kBlue : const Color(0xFFBBBBBB),
-                fontWeight: active ? FontWeight.w900 : FontWeight.w500)),
-          ]),
-        ));
-      })),
-    );
-    }
-
-    void _goToExamPrep() {
-    // TODO: Implement Exam Prep navigation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Exam Prep page coming soon!')),
-    );
-  }
-
-  void _goToCETracker() {
-    // TODO: Implement CE Tracker navigation
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('CE Tracker page coming soon!')),
-    );
-  }
-
-  void _showMoreSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _MoreSheet(
-        userName: _userName,
-        userEmail: _userEmail,
-        nmlsId: _nmlsId,
-        state: _state,
-        initial: _initial,
-        onSignOut: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).pop();
-        },
-        onHowItWorks: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => HowItWorksScreen()),
-          );
-        },
-      ),
-    );
-  }
 
   Widget _loadingView() => const Center(child: SizedBox(
     width: 32, height: 32,
