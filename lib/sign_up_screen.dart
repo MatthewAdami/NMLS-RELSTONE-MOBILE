@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'config/api_config.dart';
 
 // ─── Theme Constants ─────────────────────────────────────────────────
 const kNavy = Color(0xFF091925);
@@ -40,36 +39,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _error = '';
 
   Future<void> _register() async {
-    final name = _nameController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      setState(() {
-        _error = 'Name, email and password are required.';
-      });
-      return;
-    }
-
-    if (password.length < 6) {
-      setState(() {
-        _error = 'Password must be at least 6 characters.';
-      });
-      return;
-    }
-
     setState(() { _isLoading = true; _error = ''; });
 
     try {
       final response = await http.post(
-        Uri.parse(ApiConfig.register),
+        Uri.parse('http://localhost:3000/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'name': name,
-          'email': email,
-          'password': password,
-          'nmls_id': _nmlsController.text,
-          'state': _selectedState,
+          'name': _nameController.text,
+          'email': _emailController.text,
+          'password': _passwordController.text,
+          'nmls_id': _nmlsController.text.isEmpty ? null : _nmlsController.text,  // Ensure this is null if empty
+          'state': _selectedState.isEmpty ? 'CA' : _selectedState,  // Ensure 'CA' is used as default if empty
         }),
       );
 
