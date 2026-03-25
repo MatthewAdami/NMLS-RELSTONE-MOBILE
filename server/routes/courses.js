@@ -2,7 +2,8 @@ const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const User = require('../models/User');
 const Enrollment = require('../models/Enrollment');
-const { listCoursesForUser } = require('../data/courses');
+const Course = require('../models/Course');
+const { findCourseById } = require('../data/courses');
 
 const router = express.Router();
 
@@ -18,10 +19,36 @@ router.get('/', requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const result = listCoursesForUser({
-      assignedCourseIds: user.assigned_course_ids || [],
-      type,
-      state,
+    const assignedCourseIds = (user.assigned_course_ids || [])
+      .map((entry) => String(entry).trim())
+      .filter(Boolean);
+    const assignedSet = new Set(assignedCourseIds);
+
+    // Primary source: MongoDB courses collection.
+    // Fallback: in-memory seed list for any assigned IDs not yet migrated.
+    const dbCourses = assignedCourseIds.length
+      ? await Course.find({ _id: { $in: assignedCourseIds } }).lean()
+      : [];
+    const dbById = new Map(dbCourses.map((course) => [course._id, course]));
+
+    const scopedAssignedCourses = assignedCourseIds
+      .map((courseId) => dbById.get(courseId) || findCourseById(courseId))
+      .filter(Boolean)
+      .filter((course) => assignedSet.has(String(course._id)));
+
+    const normalizedType = type ? String(type).toUpperCase() : null;
+    const normalizedState = state ? String(state).toUpperCase() : null;
+
+    const result = scopedAssignedCourses.filter((course) => {
+      const matchesType =
+        !normalizedType ||
+        String(course.type || '').toUpperCase() === normalizedType;
+      const statesApproved = Array.isArray(course.states_approved)
+        ? course.states_approved.map((entry) => String(entry).toUpperCase())
+        : [];
+      const matchesState =
+        !normalizedState || statesApproved.includes(normalizedState);
+      return matchesType && matchesState;
     });
 
     const courseIds = result.map((course) => course._id);

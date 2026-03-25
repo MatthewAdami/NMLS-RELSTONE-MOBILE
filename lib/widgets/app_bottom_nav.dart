@@ -18,6 +18,7 @@ class AppBottomNav extends StatelessWidget {
   final AppNavTab activeTab;
   final String userName;
   final String userEmail;
+  final String? token;
   final String nmlsId;
   final String state;
   final VoidCallback? onSignOut;
@@ -27,6 +28,7 @@ class AppBottomNav extends StatelessWidget {
     required this.activeTab,
     required this.userName,
     required this.userEmail,
+    this.token,
     this.nmlsId = 'Not set',
     this.state = 'Not set',
     this.onSignOut,
@@ -126,6 +128,7 @@ class AppBottomNav extends StatelessWidget {
               'nmls_id': nmlsId,
               'state': state,
             },
+            token: token,
           ),
         ),
       );
@@ -135,7 +138,11 @@ class AppBottomNav extends StatelessWidget {
     if (targetTab == AppNavTab.courses) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => CoursesScreen(userName: userName, userEmail: userEmail),
+          builder: (_) => CoursesScreen(
+            token: token,
+            userName: userName,
+            userEmail: userEmail,
+          ),
         ),
       );
       return;
@@ -144,7 +151,11 @@ class AppBottomNav extends StatelessWidget {
     if (targetTab == AppNavTab.examPrep) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => ExamPrepScreen(userName: userName, userEmail: userEmail),
+          builder: (_) => ExamPrepScreen(
+            token: token,
+            userName: userName,
+            userEmail: userEmail,
+          ),
         ),
       );
       return;
@@ -153,7 +164,11 @@ class AppBottomNav extends StatelessWidget {
     if (targetTab == AppNavTab.ceTracker) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => CETrackerScreen(userName: userName, userEmail: userEmail),
+          builder: (_) => CETrackerScreen(
+            token: token,
+            userName: userName,
+            userEmail: userEmail,
+          ),
         ),
       );
     }

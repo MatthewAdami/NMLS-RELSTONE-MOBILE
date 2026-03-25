@@ -37,9 +37,12 @@ class MoreSheet extends StatelessWidget {
         color: _kWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -243,8 +246,10 @@ class MoreSheet extends StatelessWidget {
             ),
             onTap: onSignOut,
           ),
-          const SizedBox(height: 16),
-        ],
+              SizedBox(height: 16 + MediaQuery.of(context).padding.bottom),
+            ],
+          ),
+        ),
       ),
     );
   }

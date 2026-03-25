@@ -32,7 +32,13 @@ class _SidebarDrawer extends StatelessWidget {
   final VoidCallback onCertificatesTap;
   final String userName;
   final String userEmail;
-  const _SidebarDrawer({required this.onCertificatesTap, required this.userName, required this.userEmail});
+  final String? token;
+  const _SidebarDrawer({
+    required this.onCertificatesTap,
+    required this.userName,
+    required this.userEmail,
+    this.token,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -71,11 +77,19 @@ class _SidebarDrawer extends StatelessWidget {
             }),
             _DrawerItem(icon: Icons.assignment, label: 'Exam Prep', onTap: () {
               Navigator.of(context).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ExamPrepScreen(userName: userName, userEmail: userEmail)));
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ExamPrepScreen(
+                token: token,
+                userName: userName,
+                userEmail: userEmail,
+              )));
             }),
             _DrawerItem(icon: Icons.access_time, label: 'CE Tracker', onTap: () {
               Navigator.of(context).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => CETrackerScreen(userName: userName, userEmail: userEmail)));
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => CETrackerScreen(
+                token: token,
+                userName: userName,
+                userEmail: userEmail,
+              )));
             }),
             const SizedBox(height: 20),
             Divider(color: Colors.white54),
@@ -248,7 +262,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     setState(() { _loading = true; _error = ''; });
     try {
       final res = await http
-          .get(Uri.parse('$_apiBase/data'), headers: _headers)
+          .get(Uri.parse('$_apiBase/dashboard'), headers: _headers)
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         setState(() => _dashboard = Map<String, dynamic>.from(jsonDecode(res.body) as Map));
@@ -277,7 +291,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ),
         );
-      }, userName: _userName, userEmail: _userEmail),
+      }, userName: _userName, userEmail: _userEmail, token: widget.token),
       drawer: null,
       body: SafeArea(child: Column(children: [
         _buildTopBar(),
@@ -288,6 +302,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           activeTab: AppNavTab.home,
           userName: _userName,
           userEmail: _userEmail,
+              token: widget.token,
           nmlsId: _nmlsId,
           state: _state,
           onSignOut: () {

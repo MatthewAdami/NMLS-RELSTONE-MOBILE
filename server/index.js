@@ -1,9 +1,12 @@
 const express = require('express');
+const http = require('http');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
-dotenv.config();
+// Always load env from this folder (not from the current working directory).
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
@@ -13,6 +16,7 @@ const statesRoutes = require('./routes/states');
 const examPrepRoutes = require('./routes/exam_prep');
 const notificationsRoutes = require('./routes/notifications');
 const resourcesRoutes = require('./routes/resources');
+const supportRoutes = require('./routes/support');
 
 const app = express();
 
@@ -31,9 +35,27 @@ app.use('/api/states', statesRoutes);
 app.use('/api/exam-prep', examPrepRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/resources', resourcesRoutes);
+app.use('/api/support', supportRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
+const COMPAT_PORT = 3000;
 const MONGO_URI = process.env.MONGO_URI;
+
+function startServer(port, label) {
+  const server = http.createServer(app);
+
+  server.on('error', (error) => {
+    if (error?.code === 'EADDRINUSE') {
+      console.warn(`${label} server port ${port} is already in use`);
+      return;
+    }
+    console.error(`${label} server failed on port ${port}:`, error.message || error);
+  });
+
+  server.listen(port, () => {
+    console.log(`${label} server running on http://localhost:${port}`);
+  });
+}
 
 if (!MONGO_URI) {
   console.error('Missing MONGO_URI in .env');
@@ -44,9 +66,10 @@ mongoose
   .connect(MONGO_URI)
   .then(() => {
     console.log('Connected to MongoDB');
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
+    startServer(PORT, 'Primary');
+    if (COMPAT_PORT !== PORT) {
+      startServer(COMPAT_PORT, 'Compat');
+    }
   })
   .catch((error) => {
     console.error('Failed to connect to MongoDB:', error.message);
