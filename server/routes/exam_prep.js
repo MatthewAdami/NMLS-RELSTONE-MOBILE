@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { requireAuth } = require('../middleware/auth');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -63,19 +64,61 @@ function buildFlashcards(questions) {
       difficulty,
     });
 
-    if (cards.length >= 80) break;
+    if (cards.length >= 300) break;
   }
 
-  return cards;
+  if (cards.length <= 1) {
+    return cards.slice(0, 80);
+  }
+
+  // Daily rotation: same order for everyone during a day, changes next day.
+  const now = new Date();
+  const daySeed = Number(
+    `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`
+  );
+
+  const shuffled = cards.slice();
+
+  // Deterministic PRNG (mulberry32-style) seeded by UTC date.
+  let state = daySeed >>> 0;
+  const nextRand = () => {
+    state += 0x6D2B79F5;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  // Fisher-Yates shuffle with deterministic random.
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(nextRand() * (i + 1));
+    const tmp = shuffled[i];
+    shuffled[i] = shuffled[j];
+    shuffled[j] = tmp;
+  }
+
+  return shuffled.slice(0, 80);
 }
 
-async function loadExamQuestions({ topic }) {
+async function loadExamQuestions({ topic, assignedCourseIds, isAdmin }) {
   const db = mongoose.connection.db;
   if (!db) throw new Error('Database connection is not initialized');
 
+  const courseQuery = isAdmin
+    ? { 'modules.quiz.0': { $exists: true } }
+    : {
+        _id: { $in: assignedCourseIds || [] },
+        'modules.quiz.0': { $exists: true },
+      };
+
+  // For students: if nothing is assigned, return an empty bank.
+  if (!isAdmin && (!assignedCourseIds || assignedCourseIds.length === 0)) {
+    return { questions: [], topics: [] };
+  }
+
   const courses = await db
     .collection('courses')
-    .find({ 'modules.quiz.0': { $exists: true } })
+    .find(courseQuery)
     .project({ title: 1, modules: 1 })
     .toArray();
 
@@ -118,7 +161,21 @@ async function loadExamQuestions({ topic }) {
 router.get('/questions', requireAuth, async (req, res) => {
   try {
     const { topic } = req.query;
-    const { questions, topics } = await loadExamQuestions({ topic });
+    const isAdmin = req.user.role === 'admin';
+
+    // Students should only access their assigned courses.
+    const user = isAdmin
+      ? null
+      : await User.findById(req.user.id).select('assigned_course_ids').lean();
+    const assignedCourseIds = isAdmin
+      ? null
+      : (user?.assigned_course_ids || []).map((id) => String(id).trim()).filter(Boolean);
+
+    const { questions, topics } = await loadExamQuestions({
+      topic,
+      assignedCourseIds,
+      isAdmin,
+    });
     const flashcards = buildFlashcards(questions);
 
     return res.status(200).json({

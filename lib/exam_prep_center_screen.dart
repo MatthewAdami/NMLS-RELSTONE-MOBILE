@@ -17,11 +17,34 @@ const kPrepBorder = Color(0x1A020817);
 
 class ExamPrepCenterScreen extends StatefulWidget {
   final String? token;
-  const ExamPrepCenterScreen({super.key, this.token});
+  final ExamPrepInitialMode? initialMode;
+  final String? initialDrillTopic;
+  final int? initialDrillCount;
+
+  // When launched from the outer "Exam Prep" landing page, we hide extra sections
+  // so analytics/readiness stay outside the full exam experience.
+  final bool showReadiness;
+  final bool showPracticeModes;
+  final bool showAnalytics;
+  final bool popToDashboardOnEndSession;
+
+  const ExamPrepCenterScreen({
+    super.key,
+    this.token,
+    this.initialMode,
+    this.initialDrillTopic,
+    this.initialDrillCount,
+    this.showReadiness = true,
+    this.showPracticeModes = true,
+    this.showAnalytics = true,
+    this.popToDashboardOnEndSession = false,
+  });
 
   @override
   State<ExamPrepCenterScreen> createState() => _ExamPrepCenterScreenState();
 }
+
+enum ExamPrepInitialMode { simulator, drill }
 
 class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
   static const List<String> _defaultTopics = <String>[
@@ -49,9 +72,14 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
   bool _isLoadingAnalytics = true;
   String _loadError = '';
 
+  bool _didAutoStart = false;
+
   String _drillTopic = _defaultTopics.first;
   int _drillCount = 12;
-  final Set<int> _flipped = <int>{};
+  // Tracks flipped state by stable card identity so filtering doesn't break flips.
+  final Set<String> _flippedCardKeys = <String>{};
+  // Used to reduce repeats across the last few sessions.
+  final List<Set<String>> _recentSessionQuestionKeys = <Set<String>>[];
   String _flashTopicFilter = 'All';
   String _flashDifficultyFilter = 'All';
 
@@ -81,7 +109,7 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
   }
 
   List<_FlashcardItem> get _filteredFlashcards {
-    return _flashcards.where((card) {
+    final filtered = _flashcards.where((card) {
       final topicMatch =
           _flashTopicFilter == 'All' || card.topic == _flashTopicFilter;
       final difficultyMatch =
@@ -89,13 +117,51 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
           card.difficulty.toLowerCase() == _flashDifficultyFilter.toLowerCase();
       return topicMatch && difficultyMatch;
     }).toList();
+
+    // Sort so weak topics appear first; then hardest cards.
+    final weakTopics = _weakAreas.toSet();
+
+    int difficultyRank(String difficulty) {
+      switch (difficulty.toLowerCase()) {
+        case 'hard':
+          return 0;
+        case 'medium':
+          return 1;
+        case 'easy':
+          return 2;
+        default:
+          return 3;
+      }
+    }
+
+    filtered.sort((a, b) {
+      final aWeak = weakTopics.contains(a.topic) ? 0 : 1;
+      final bWeak = weakTopics.contains(b.topic) ? 0 : 1;
+      if (aWeak != bWeak) return aWeak - bWeak;
+
+      final aDiff = difficultyRank(a.difficulty);
+      final bDiff = difficultyRank(b.difficulty);
+      if (aDiff != bDiff) return aDiff - bDiff;
+
+      final topicCmp = a.topic.compareTo(b.topic);
+      if (topicCmp != 0) return topicCmp;
+      return a.term.compareTo(b.term);
+    });
+
+    // Avoid huge horizontal lists.
+    return filtered.length > 30 ? filtered.take(30).toList() : filtered;
   }
 
   @override
   void initState() {
     super.initState();
     _loadQuestions();
-    _loadAnalytics();
+    if (widget.showAnalytics) {
+      _loadAnalytics();
+    } else {
+      // Keep analytics spinner logic consistent with UI.
+      _isLoadingAnalytics = false;
+    }
   }
 
   @override
@@ -108,16 +174,23 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
 
   double get _readinessScore {
     if (_history.isEmpty) return 0.0;
-    final recent = _history.length > 6
-        ? _history.sublist(_history.length - 6)
+    // Exponential weighting: most recent sessions matter more.
+    final recent = _history.length > 8
+        ? _history.sublist(_history.length - 8)
         : _history;
-    final avg =
-        recent.map((e) => e.scorePercent).reduce((a, b) => a + b) /
-        recent.length;
-    final trendBonus = recent.length > 1
-        ? max(0, recent.last.scorePercent - recent.first.scorePercent) * 0.25
-        : 0.0;
-    return (avg + trendBonus).clamp(0.0, 1.0);
+    final scores = recent.map((e) => e.scorePercent).toList();
+
+    double weightedSum = 0.0;
+    double weightSum = 0.0;
+    for (int i = 0; i < scores.length; i++) {
+      // age=0 for newest score, increasing for older scores.
+      final age = scores.length - 1 - i;
+      final w = pow(0.85, age).toDouble();
+      weightedSum += scores[i] * w;
+      weightSum += w;
+    }
+
+    return weightSum == 0 ? 0.0 : (weightedSum / weightSum).clamp(0.0, 1.0);
   }
 
   Map<String, double> get _topicAverages {
@@ -188,6 +261,11 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
           _drillTopic = _topics.first;
         }
       });
+
+      // Auto-start requested mode (when launched from outer landing page).
+      if (!_didAutoStart && widget.initialMode != null) {
+        _tryAutoStart();
+      }
     } catch (_) {
       setState(() {
         _loadError = 'Unable to reach exam API. Please retry.';
@@ -197,6 +275,33 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
       if (mounted) {
         setState(() => _isLoadingQuestions = false);
       }
+    }
+  }
+
+  void _tryAutoStart() {
+    if (_didAutoStart) return;
+    if (_questionBank.isEmpty) return;
+
+    // Auto-start only once questions are available.
+    _didAutoStart = true;
+
+    if (widget.initialMode == ExamPrepInitialMode.simulator) {
+      _startSimulator();
+      return;
+    }
+
+    if (widget.initialMode == ExamPrepInitialMode.drill) {
+      if (widget.initialDrillTopic != null && widget.initialDrillTopic!.isNotEmpty) {
+        // Use provided topic only if it exists in the loaded topic list.
+        final candidate = widget.initialDrillTopic!.trim();
+        if (_topics.contains(candidate)) {
+          _drillTopic = candidate;
+        }
+      }
+      if (widget.initialDrillCount != null && widget.initialDrillCount! >= 8) {
+        _drillCount = widget.initialDrillCount!;
+      }
+      _startDrill();
     }
   }
 
@@ -259,11 +364,16 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
 
   List<String> get _weakAreas {
     final avg = _topicAverages;
-    return avg.entries
+    final weak = avg.entries
         .where((e) => e.value > 0 && e.value < 0.72)
-        .map((e) => e.key)
-        .toList();
+        .toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    return weak.map((e) => e.key).take(5).toList();
   }
+
+  String _questionKey(_PrepQuestion q) => '${q.topic}::${q.prompt}';
+
+  String _flashcardKey(_FlashcardItem card) => '${card.topic}::${card.term}';
 
   List<double> get _progressSeries {
     if (_history.isEmpty) return <double>[];
@@ -278,7 +388,11 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
       _showMessage('Exam questions are not loaded yet.');
       return;
     }
-    final questions = _randomQuestions(count: 40);
+    const requested = 40;
+    final questions = _randomQuestions(count: requested);
+    if (questions.length < requested) {
+      _showMessage('Only ${questions.length} unique questions available right now.');
+    }
     _startSession(
       mode: 'Full Exam Simulator',
       questions: questions,
@@ -291,7 +405,11 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
       _showMessage('Exam questions are not loaded yet.');
       return;
     }
-    final questions = _randomQuestions(count: _drillCount, topic: _drillTopic);
+    final requested = _drillCount;
+    final questions = _randomQuestions(count: requested, topic: _drillTopic);
+    if (questions.length < requested) {
+      _showMessage('Only ${questions.length} unique questions available for "$_drillTopic".');
+    }
     _startSession(
       mode: 'Topic Drill: $_drillTopic',
       questions: questions,
@@ -336,6 +454,10 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
       _activeMode = '';
       _sessionStartedAt = null;
     });
+
+    if (widget.popToDashboardOnEndSession) {
+      Navigator.of(context).maybePop();
+    }
   }
 
   void _submitSession({bool autoSubmitted = false}) {
@@ -372,6 +494,13 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
       _history.add(result);
     });
 
+    // Reduce repeats across the next sessions (simulator/drills).
+    final sessionKeys = _activeQuestions.map(_questionKey).toSet();
+    _recentSessionQuestionKeys.add(sessionKeys);
+    if (_recentSessionQuestionKeys.length > 3) {
+      _recentSessionQuestionKeys.removeAt(0);
+    }
+
     final elapsed = _sessionStartedAt == null
         ? 0
         : DateTime.now().difference(_sessionStartedAt!).inSeconds;
@@ -391,23 +520,98 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
   }
 
   List<_PrepQuestion> _randomQuestions({required int count, String? topic}) {
-    final filtered = topic == null
+    if (_questionBank.isEmpty || count <= 0) return <_PrepQuestion>[];
+
+    final rng = Random();
+
+    final excluded = <String>{};
+    for (final set in _recentSessionQuestionKeys) {
+      excluded.addAll(set);
+    }
+
+    final base = topic == null
         ? List<_PrepQuestion>.from(_questionBank)
         : _questionBank.where((q) => q.topic == topic).toList();
 
-    if (filtered.isEmpty) return <_PrepQuestion>[];
+    if (base.isEmpty) return <_PrepQuestion>[];
 
-    filtered.shuffle(Random());
-    if (filtered.length >= count) {
-      return filtered.take(count).toList();
+    // Drill mode: topic is fixed, keep selection unbiased but avoid repeats.
+    if (topic != null) {
+      final pool = base.where((q) => !excluded.contains(_questionKey(q))).toList();
+      pool.shuffle(rng);
+
+      final out = <_PrepQuestion>[];
+      out.addAll(pool.take(count));
+      if (out.length >= count) return out;
+
+      // Not enough new questions; fill with the remaining unique questions.
+      final already = out.map(_questionKey).toSet();
+      final remaining = base.where((q) => !already.contains(_questionKey(q))).toList();
+      remaining.shuffle(rng);
+      out.addAll(remaining.take(count - out.length));
+      return out;
+    }
+
+    // Simulator mode: choose questions from weak topics more often.
+    double weightForTopic(String t) {
+      final avg = _topicAverages[t] ?? 0.0; // avg==0 -> no attempts yet
+      if (avg <= 0) return 1.0;
+      final weakBoost = 0.72 - avg;
+      final w = 1.0 + (weakBoost > 0 ? weakBoost * 2.5 : 0.0);
+      return w.clamp(1.0, 3.5);
+    }
+
+    final pool = base.where((q) => !excluded.contains(_questionKey(q))).toList();
+    if (pool.isEmpty) {
+      // Fallback: all questions are in recent sessions. Allow selection anyway.
+      final fallback = List<_PrepQuestion>.from(base)..shuffle(rng);
+      return fallback.take(count).toList();
+    }
+
+    final byTopic = <String, List<_PrepQuestion>>{};
+    for (final q in pool) {
+      byTopic.putIfAbsent(q.topic, () => <_PrepQuestion>[]).add(q);
     }
 
     final out = <_PrepQuestion>[];
     while (out.length < count) {
-      out.addAll(filtered);
-      if (filtered.isEmpty) break;
+      final availableTopics =
+          byTopic.entries.where((e) => e.value.isNotEmpty).map((e) => e.key).toList();
+      if (availableTopics.isEmpty) break;
+
+      final totalW = availableTopics.fold<double>(
+        0.0,
+        (sum, t) => sum + weightForTopic(t),
+      );
+
+      // Weighted random pick of a topic.
+      final pick = totalW <= 0
+          ? availableTopics[rng.nextInt(availableTopics.length)]
+          : (() {
+              var r = rng.nextDouble() * totalW;
+              for (final t in availableTopics) {
+                r -= weightForTopic(t);
+                if (r <= 0) return t;
+              }
+              return availableTopics.last;
+            })();
+
+      final bucket = byTopic[pick];
+      if (bucket == null || bucket.isEmpty) continue;
+
+      final idx = rng.nextInt(bucket.length);
+      out.add(bucket.removeAt(idx));
     }
-    return out.take(count).toList();
+
+    // Fill any shortfall from remaining unique questions.
+    if (out.length < count) {
+      final already = out.map(_questionKey).toSet();
+      final remaining = base.where((q) => !already.contains(_questionKey(q))).toList();
+      remaining.shuffle(rng);
+      out.addAll(remaining.take(count - out.length));
+    }
+
+    return out;
   }
 
   Future<void> _saveAttempt(_SessionResult result, int timeSpentSeconds) async {
@@ -447,79 +651,116 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPrepBg,
-      appBar: AppBar(
-        backgroundColor: kPrepWhite,
-        foregroundColor: kPrepDark,
-        elevation: 0,
-        title: const Text(
-          'Exam Prep Center',
-          style: TextStyle(fontWeight: FontWeight.w900),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTopBar(context),
+            Expanded(
+              child: _isLoadingQuestions
+                  ? const Center(child: CircularProgressIndicator())
+                  : !_hasQuestionBank
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.quiz_outlined,
+                                  size: 34,
+                                  color: kPrepDark,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  _loadError.isNotEmpty
+                                      ? _loadError
+                                      : 'No exam questions found in database.',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    color: kPrepDark,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                ElevatedButton(
+                                  onPressed: _loadQuestions,
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (widget.showReadiness) ...[
+                                _buildReadinessCard(),
+                                const SizedBox(height: 12),
+                              ],
+                              if (widget.showPracticeModes) ...[
+                                _buildPracticeModes(),
+                                const SizedBox(height: 12),
+                              ],
+                              if (_hasActiveSession) ...[
+                                _buildSessionPanel(),
+                                const SizedBox(height: 12),
+                              ],
+                              _buildFlashcardSection(),
+                              if (widget.showAnalytics) ...[
+                                const SizedBox(height: 12),
+                                _buildAnalyticsSection(),
+                                if (_isLoadingAnalytics) ...[
+                                  const SizedBox(height: 6),
+                                  const Center(
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ],
+                          ),
+                        ),
+            ),
+          ],
         ),
       ),
-      body: SafeArea(
-        child: _isLoadingQuestions
-            ? const Center(child: CircularProgressIndicator())
-            : !_hasQuestionBank
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.quiz_outlined,
-                        size: 34,
-                        color: kPrepDark,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _loadError.isNotEmpty
-                            ? _loadError
-                            : 'No exam questions found in database.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: kPrepDark,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: _loadQuestions,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildReadinessCard(),
-                    const SizedBox(height: 12),
-                    _buildPracticeModes(),
-                    const SizedBox(height: 12),
-                    if (_hasActiveSession) ...[
-                      _buildSessionPanel(),
-                      const SizedBox(height: 12),
-                    ],
-                    _buildFlashcardSection(),
-                    const SizedBox(height: 12),
-                    _buildAnalyticsSection(),
-                    if (_isLoadingAnalytics) ...[
-                      const SizedBox(height: 6),
-                      const Center(
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+      decoration: const BoxDecoration(
+        color: kPrepDark,
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back, color: kPrepWhite),
+          ),
+          const SizedBox(width: 6),
+          const Expanded(
+            child: Text(
+              'Exam Prep Center',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                color: kPrepWhite,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
               ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -621,11 +862,13 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Practice Modes',
+            'PRACTICE MODES',
             style: TextStyle(
               color: kPrepDark,
-              fontSize: 15,
+              fontFamily: 'Poppins',
+              fontSize: 12,
               fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
             ),
           ),
           const SizedBox(height: 10),
@@ -634,20 +877,18 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
               final bool stackCards = constraints.maxWidth < 760;
 
               final simulatorCard = _modeCard(
-                title: 'Full-length Simulator',
-                subtitle: '40 randomized questions, timed 60 minutes.',
-                icon: Icons.timer_outlined,
+                title: 'Full Exam',
+                subtitle: '40 randomized questions · 60 minutes',
+                icon: Icons.description_outlined,
                 color: kPrepBlue,
-                buttonLabel: 'Start Simulator',
                 onTap: _startSimulator,
               );
 
               final drillCard = _modeCard(
                 title: 'Topic Drill',
-                subtitle: 'Practice one subject area at a time.',
-                icon: Icons.tune_rounded,
+                subtitle: 'One topic · timed drill',
+                icon: Icons.access_time,
                 color: kPrepTeal,
-                buttonLabel: 'Start Drill',
                 onTap: _startDrill,
                 controls: Column(
                   children: [
@@ -746,62 +987,78 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
     required String subtitle,
     required IconData icon,
     required Color color,
-    required String buttonLabel,
     required VoidCallback onTap,
     Widget? controls,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 6),
-          Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              color: kPrepDark,
-              fontSize: 13,
-            ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color == kPrepBlue ? kPrepDark : kPrepWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: color == kPrepBlue
+                ? Colors.transparent
+                : kPrepBorder.withOpacity(0.45),
           ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: kPrepMuted,
-              fontSize: 11,
-              height: 1.35,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          ),
-          if (controls != null) ...[const SizedBox(height: 8), controls],
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: onTap,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: color,
-                foregroundColor: kPrepWhite,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 11),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (color == kPrepBlue ? kPrepBlue : kPrepBlue)
+                    .withOpacity(color == kPrepBlue ? 0.18 : 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: (color == kPrepBlue ? kPrepBlue : kPrepBlue)
+                      .withOpacity(0.18),
                 ),
               ),
-              child: Text(
-                buttonLabel,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              child: Icon(
+                icon,
+                color: color == kPrepBlue ? kPrepBlue : const Color(0xFF6B8397),
+                size: 20,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 14),
+            Text(
+              title,
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+                color: color == kPrepBlue ? kPrepWhite : kPrepDark,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                color: color == kPrepBlue
+                    ? const Color(0xFF7D92A3)
+                    : kPrepMuted,
+              ),
+            ),
+            if (controls != null) ...[
+              const SizedBox(height: 12),
+              controls,
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -1113,15 +1370,16 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
                 separatorBuilder: (_, __) => const SizedBox(width: 10),
                 itemBuilder: (context, index) {
                   final card = filteredCards[index];
-                  final flipped = _flipped.contains(index);
+                  final cardKey = _flashcardKey(card);
+                  final flipped = _flippedCardKeys.contains(cardKey);
 
                   return GestureDetector(
                     onTap: () {
                       setState(() {
                         if (flipped) {
-                          _flipped.remove(index);
+                          _flippedCardKeys.remove(cardKey);
                         } else {
-                          _flipped.add(index);
+                          _flippedCardKeys.add(cardKey);
                         }
                       });
                     },
