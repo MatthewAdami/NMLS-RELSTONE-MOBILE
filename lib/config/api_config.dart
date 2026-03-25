@@ -57,6 +57,9 @@ class ApiConfig {
   // Notifications
   static String get notifications => "$baseUrl$apiPrefix/notifications";
 
+  // Support
+  static String get contactSupport => "$baseUrl$apiPrefix/support/contact";
+
   // Health
   static String get health => "$baseUrl$apiPrefix/health";
 }

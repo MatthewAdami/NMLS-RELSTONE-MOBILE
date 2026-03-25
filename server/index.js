@@ -3,8 +3,10 @@ const http = require('http');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 
-dotenv.config();
+// Always load env from this folder (not from the current working directory).
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
@@ -14,6 +16,7 @@ const statesRoutes = require('./routes/states');
 const examPrepRoutes = require('./routes/exam_prep');
 const notificationsRoutes = require('./routes/notifications');
 const resourcesRoutes = require('./routes/resources');
+const supportRoutes = require('./routes/support');
 
 const app = express();
 
@@ -32,6 +35,7 @@ app.use('/api/states', statesRoutes);
 app.use('/api/exam-prep', examPrepRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/resources', resourcesRoutes);
+app.use('/api/support', supportRoutes);
 
 const PORT = Number(process.env.PORT) || 5000;
 const COMPAT_PORT = 3000;

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'faq_screen.dart';
+import 'config/api_config.dart';
+import 'services/api_client.dart';
 
 // Theme constants
 const kDark = Color(0xFF091925);
@@ -25,6 +27,7 @@ class _ContactSupportPageState extends State<ContactSupportPage> {
   final _formKey = GlobalKey<FormState>();
   String subject = 'General Inquiry';
   String message = '';
+  bool _isSubmitting = false;
 
   final List<String> subjects = [
     'General Inquiry',
@@ -201,14 +204,55 @@ class _ContactSupportPageState extends State<ContactSupportPage> {
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        onPressed: () {
-                          if (_formKey.currentState?.validate() ?? false) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Message sent!')),
-                            );
-                          }
-                        },
-                        child: const Text('Send', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                        onPressed: _isSubmitting
+                            ? null
+                            : () async {
+                                if (!(_formKey.currentState?.validate() ?? false)) return;
+                                setState(() => _isSubmitting = true);
+
+                                try {
+                                  final res = await ApiClient.post(
+                                    ApiConfig.contactSupport,
+                                    body: {
+                                      'name': widget.userName,
+                                      'email': widget.userEmail,
+                                      'subject': subject,
+                                      'message': message,
+                                    },
+                                  );
+
+                                  final statusCode = res['statusCode'] as int? ?? 500;
+                                  final dataDynamic = res['data'];
+                                  final serverMessage = (dataDynamic is Map && dataDynamic['message'] != null)
+                                      ? dataDynamic['message'].toString()
+                                      : null;
+
+                                  if (statusCode >= 200 && statusCode < 300) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(serverMessage ?? 'Message sent! Check your email.')),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(serverMessage ?? 'Failed to send message. Please try again later.'),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Network error sending message: $e')),
+                                  );
+                                } finally {
+                                  if (mounted) setState(() => _isSubmitting = false);
+                                }
+                              },
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Send', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
                       ),
                     ),
                   ],
