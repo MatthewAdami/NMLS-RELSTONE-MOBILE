@@ -90,8 +90,13 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
 
       _toast(data['message']?.toString() ?? "Email verified!");
 
-      // ✅ Go to your Home route (you said you use /homescreen)
-      Navigator.pushNamedAndRemoveUntil(context, '/homescreen', (_) => false);
+      // ✅ Go to Account Setup flow
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/account-setup',
+        (_) => false,
+        arguments: {'email': _email},
+      );
       return;
     }
 

@@ -1,102 +1,182 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:nmls_mobile/catalog/api_client.dart' as catalog;
+import 'package:nmls_mobile/catalog/token_provider.dart';
 import 'package:nmls_mobile/config/api_config.dart';
+import 'package:nmls_mobile/catalog/courses_catalog_screen.dart';
 import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
-const kDark        = Color(0xFF091925);
-const kBlue        = Color(0xFF2EABFE);
-const kBlueFaint   = Color(0x1A2EABFE);
-const kBlueBorder  = Color(0x382EABFE);
-const kTeal        = Color(0xFF00B4B4);
-const kBg          = Color(0xFFF6F7FB);
-const kWhite       = Colors.white;
-const kMuted       = Color(0x990B1220);
-const kBorder      = Color(0x1A020817);
-const kSurface     = Color(0xD0FFFFFF);
+const kDark = Color(0xFF091925);
+const kBlue = Color(0xFF2EABFE);
+const kBlueFaint = Color(0x1A2EABFE);
+const kBlueBorder = Color(0x382EABFE);
+const kTeal = Color(0xFF00B4B4);
+const kBg = Color(0xFFF6F7FB);
+const kWhite = Colors.white;
+const kMuted = Color(0x990B1220);
+const kBorder = Color(0x1A020817);
+const kSurface = Color(0xD0FFFFFF);
 
 class CoursesScreen extends StatefulWidget {
   final String? token;
   final String userName;
   final String userEmail;
-  const CoursesScreen({Key? key, this.token, this.userName = 'User', this.userEmail = 'user@example.com'}) : super(key: key);
+  const CoursesScreen({
+    super.key,
+    this.token,
+    this.userName = 'User',
+    this.userEmail = 'user@example.com',
+  });
 
   @override
-  _CoursesScreenState createState() => _CoursesScreenState();
+  CoursesScreenState createState() => CoursesScreenState();
 }
 
-class _CoursesScreenState extends State<CoursesScreen> {
+class CoursesScreenState extends State<CoursesScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   int _tabIndex = 0; // 0 = In Progress, 1 = Completed, 2 = Wishlist
-  String _activeFilter = 'All States';
+  // Nullable to prevent hot-reload stale state from crashing.
+  String? _selectedType = 'All'; // All, CE, PE
+  String _searchQuery = '';
+
   bool _loading = true;
-  String _error = '';
-  List<Map<String, dynamic>> _courses = [];
-
-  String get _apiBase => '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}';
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    if (widget.token != null) 'Authorization': 'Bearer ${widget.token}',
-  };
-
-  @override
-  void initState() {
-    super.initState();
-    _searchCtrl.addListener(() => setState(() {}));
-    _fetchCourses();
-  }
-
-  Future<void> _fetchCourses() async {
-    if (widget.token == null || widget.token!.isEmpty) {
-      setState(() {
-        _loading = false;
-        _error = 'Missing session token. Please sign in again.';
-        _courses = [];
-      });
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-
-    try {
-      final res = await http
-          .get(Uri.parse('$_apiBase/courses'), headers: _headers)
-          .timeout(const Duration(seconds: 12));
-
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
-        final list = decoded is List ? decoded : const [];
-        setState(() {
-          _courses = list
-              .whereType<Map>()
-              .map((raw) => Map<String, dynamic>.from(raw))
-              .toList();
-          _loading = false;
-        });
-      } else {
-        setState(() {
-          _loading = false;
-          _courses = [];
-          _error = 'Could not load courses (${res.statusCode}).';
-        });
-      }
-    } catch (_) {
-      setState(() {
-        _loading = false;
-        _courses = [];
-        _error = 'Could not connect to courses service.';
-      });
-    }
-  }
+  String? _errorMessage;
+  List<Map<String, dynamic>> _allItems = <Map<String, dynamic>>[];
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMyCourses();
+  }
+
+  Future<void> _fetchMyCourses() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final apiClient = catalog.ApiClient(
+        baseUrl: ApiConfig.baseUrl,
+        tokenProvider: SharedPreferencesTokenProvider(),
+      );
+
+      // Backend "My Courses" / dashboard payload is usually under /api/dashboard.
+      // Keep /api/data as a fallback for older server versions.
+      final res = await (() async {
+        try {
+          return await apiClient.getJson('/api/dashboard');
+        } on catalog.HttpErrorException catch (e) {
+          if (e.statusCode == 404) {
+            return await apiClient.getJson('/api/data');
+          }
+          rethrow;
+        }
+      })();
+
+      final dynamic availableRaw =
+          res['available_courses'] ??
+          res['availableCourses'] ??
+          res['available'] ??
+          res['courses'] ??
+          res['data'];
+
+      final availableList = (availableRaw is List) ? availableRaw : <dynamic>[];
+
+      final items = availableList.whereType<Map<String, dynamic>>().map((
+        course,
+      ) {
+        num parseNum(dynamic value) {
+          if (value is num) return value;
+          if (value is String) return num.tryParse(value.trim()) ?? 0;
+          return 0;
+        }
+
+        bool parseBool(dynamic value) {
+          if (value is bool) return value;
+          if (value is num) return value != 0;
+          if (value is String) {
+            final v = value.trim().toLowerCase();
+            return v == 'true' || v == '1' || v == 'yes';
+          }
+          return false;
+        }
+
+        final id = course['_id']?.toString() ?? course['id']?.toString() ?? '';
+        final title = course['title']?.toString() ?? '';
+        final type = course['type']?.toString() ?? '';
+        final creditHours =
+            course['credit_hours'] ?? course['creditHours'] ?? 0;
+        final description = course['description']?.toString() ?? '';
+
+        final progressRaw =
+            course['progress_percent'] ??
+            course['progressPercent'] ??
+            course['progress'] ??
+            course['percent_complete'];
+
+        num progressNum = parseNum(progressRaw);
+        if (progressNum > 1) progressNum = progressNum / 100;
+        final progress01 = progressNum.clamp(0.0, 1.0).toDouble();
+
+        final isCompleted =
+            parseBool(
+              course['is_completed'] ??
+                  course['isCompleted'] ??
+                  course['completed'],
+            ) ||
+            progress01 >= 1.0;
+
+        // UX: show "Start" for not-yet-started courses, "Resume" otherwise.
+        final isNotStarted = !isCompleted && progress01 <= 0.001;
+
+        final icon = type.toUpperCase() == 'PE'
+            ? Icons.menu_book
+            : Icons.schedule;
+
+        return <String, dynamic>{
+          'id': id,
+          'title': title,
+          'subtitle':
+              '${type.isNotEmpty ? type : 'Course'} · ${parseNum(creditHours)} hrs',
+          'description': description,
+          'type': type,
+          'progress': progress01,
+          'action': isCompleted
+              ? 'Certificate'
+              : (isNotStarted ? 'Start' : 'Resume'),
+          'icon': icon,
+        };
+      }).toList();
+
+      setState(() => _allItems = items);
+    } on catalog.UnauthorizedException catch (e) {
+      setState(() {
+        _errorMessage = e.message;
+      });
+    } on catalog.NetworkException catch (e) {
+      setState(() {
+        _errorMessage = e.message;
+      });
+    } on catalog.ApiClientException catch (e) {
+      setState(() {
+        _errorMessage = e.message;
+      });
+    } catch (_) {
+      setState(() {
+        _errorMessage = 'Something went wrong. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
   }
 
   @override
@@ -109,18 +189,11 @@ class _CoursesScreenState extends State<CoursesScreen> {
             _buildTopSection(),
             _buildTabs(),
             _buildFilters(),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: kBlue))
-                  : _error.isNotEmpty
-                      ? _buildErrorView()
-                      : _buildCourseList(),
-            ),
+            Expanded(child: _buildCourseList()),
             AppBottomNav(
               activeTab: AppNavTab.courses,
               userName: widget.userName,
               userEmail: widget.userEmail,
-              token: widget.token,
             ),
           ],
         ),
@@ -172,9 +245,42 @@ class _CoursesScreenState extends State<CoursesScreen> {
                       ),
                       border: InputBorder.none,
                     ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const CoursesCatalogScreen(),
+                  ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: kBlue),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Browse Courses',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ],
@@ -220,10 +326,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 ),
               ),
             ),
-            Container(
-              height: 2,
-              color: isActive ? kBlue : Colors.transparent,
-            ),
+            Container(height: 2, color: isActive ? kBlue : Colors.transparent),
           ],
         ),
       ),
@@ -232,31 +335,37 @@ class _CoursesScreenState extends State<CoursesScreen> {
 
   // ─── Filters ───────────────────────────────────────────────────────
   Widget _buildFilters() {
-    final filters = ['All States', 'California', 'Texas', 'CE Only'];
+    final selectedType = _selectedType ?? 'All';
+    final filters = <String>['All', 'CE', 'PE'];
     return Padding(
       padding: const EdgeInsets.only(top: 16, bottom: 8),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
-          children: filters.map((f) {
-            bool isActive = _activeFilter == f;
+          children: filters.map((type) {
+            bool isActive = selectedType == type;
             return GestureDetector(
               onTap: () {
                 setState(() {
-                  _activeFilter = f;
+                  _selectedType = type;
                 });
               },
               child: Container(
                 margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: isActive ? kBlue : kWhite,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: isActive ? kBlue : kBorder.withValues(alpha: 0.1)),
+                  border: Border.all(
+                    color: isActive ? kBlue : kBorder.withValues(alpha: 0.1),
+                  ),
                 ),
                 child: Text(
-                  f,
+                  type,
                   style: TextStyle(
                     fontFamily: 'Poppins',
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
@@ -274,37 +383,74 @@ class _CoursesScreenState extends State<CoursesScreen> {
 
   // ─── Course List ───────────────────────────────────────────────────
   Widget _buildCourseList() {
-    final search = _searchCtrl.text.trim().toLowerCase();
-    final wantedStatus = _tabIndex == 0
-        ? 'in_progress'
-        : _tabIndex == 1
-            ? 'completed'
-            : 'wishlist';
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    final items = _courses.where((course) {
-      final status = (course['enrollment_status'] as String? ?? 'in_progress').toLowerCase();
-      if (status != wantedStatus) return false;
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _fetchMyCourses,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
-      final states = ((course['states_approved'] as List?) ?? const [])
-          .map((e) => e.toString().toUpperCase())
-          .toList();
-      final type = (course['type'] as String? ?? '').toUpperCase();
+    final selectedType = (_selectedType ?? 'All').toUpperCase();
+    final q = _searchQuery.trim().toLowerCase();
 
-      if (_activeFilter == 'California' && !states.contains('CA')) return false;
-      if (_activeFilter == 'Texas' && !states.contains('TX')) return false;
-      if (_activeFilter == 'CE Only' && type != 'CE') return false;
+    final filtered = _allItems.where((item) {
+      final itemType = (item['type'] as String?)?.toUpperCase() ?? '';
+      final matchesType = selectedType == 'ALL'
+          ? true
+          : itemType == selectedType;
 
-      if (search.isEmpty) return true;
-      final title = (course['title'] as String? ?? '').toLowerCase();
-      final description = (course['description'] as String? ?? '').toLowerCase();
-      return title.contains(search) || description.contains(search);
+      final title = (item['title'] as String?)?.toLowerCase() ?? '';
+      final desc = (item['description'] as String?)?.toLowerCase() ?? '';
+      final matchesQuery = q.isEmpty
+          ? true
+          : (title.contains(q) || desc.contains(q));
+
+      return matchesType && matchesQuery;
     }).toList();
 
+    final items = _tabIndex == 0
+        ? filtered.where((i) {
+            final p = (i['progress'] as num?)?.toDouble() ?? 0.0;
+            return p < 1.0;
+          }).toList()
+        : _tabIndex == 1
+        ? filtered.where((i) {
+            final p = (i['progress'] as num?)?.toDouble() ?? 0.0;
+            return p >= 1.0;
+          }).toList()
+        : <Map<String, dynamic>>[];
+
     if (items.isEmpty) {
-      return const Center(
-        child: Text(
-          'No assigned courses found for this tab.',
-          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500),
+      final message = q.isNotEmpty
+          ? 'No results for "$q".'
+          : _tabIndex == 2
+          ? 'No wishlist items yet.'
+          : 'No courses available for your filters.';
+
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(message, textAlign: TextAlign.center),
         ),
       );
     }
@@ -315,45 +461,30 @@ class _CoursesScreenState extends State<CoursesScreen> {
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final course = items[index];
-        final progress = ((course['progress_percent'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
-        final title = course['title'] as String? ?? 'Untitled Course';
-        final states = ((course['states_approved'] as List?) ?? const [])
-            .map((e) => e.toString().toUpperCase())
-            .toList();
-        final stateText = states.isEmpty ? 'All States' : states.first;
-        final hours = (course['credit_hours'] as num?)?.toInt() ?? 0;
-        final status = (course['enrollment_status'] as String? ?? 'in_progress').toLowerCase();
-        final subtitle = '$stateText · $hours hrs';
-        final actionText = status == 'completed'
-            ? 'Certificate'
-            : status == 'wishlist'
-                ? 'Enroll'
-                : 'Resume';
-        final type = (course['type'] as String? ?? '').toUpperCase();
-        final icon = type == 'CE'
-            ? Icons.schedule
-            : type == 'EXAM_PREP'
-                ? Icons.assignment_outlined
-                : Icons.menu_book;
+        final progress = (course['progress'] as double? ?? 0.0);
+        final title = course['title'] as String? ?? '';
+        final subtitle = course['subtitle'] as String? ?? '';
+        final actionText = course['action'] as String? ?? 'Resume';
+        final icon = course['icon'] as IconData? ?? Icons.menu_book;
 
         // Custom styling logic for the UI image matches
         Color titleColor = kDark;
         Color progressColor;
         Color progressBgColor = kBlue.withValues(alpha: 0.15);
         Color textColor;
-        
-        if (progress >= 1.0 || status == 'completed') {
+
+        if (progress == 0.72) {
+          progressColor = kBlue;
+          textColor = kBlue;
+        } else if (progress >= 1.0) {
           progressColor = kTeal;
           progressBgColor = kTeal.withValues(alpha: 0.15);
           textColor = kTeal;
-        } else if (progress > 0 || status == 'in_progress') {
-          progressColor = kBlue;
-          textColor = kBlue;
-        } else if (status == 'wishlist') {
-          progressColor = Colors.transparent;
+        } else if (progress > 0) {
+          progressColor = const Color(0xFF6B8397);
           textColor = const Color(0xFF6B8397);
         } else {
-          progressColor = const Color(0xFF6B8397);
+          progressColor = Colors.transparent;
           textColor = const Color(0xFF6B8397);
         }
 
@@ -408,8 +539,8 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   ),
                 ],
               ),
-              if (status != 'wishlist') const SizedBox(height: 16),
-              if (status != 'wishlist')
+              if (_tabIndex != 2) const SizedBox(height: 16),
+              if (_tabIndex != 2)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(99),
                   child: LinearProgressIndicator(
@@ -423,7 +554,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  if (status != 'wishlist')
+                  if (_tabIndex != 2)
                     Text(
                       '${(progress * 100).toInt()}% complete',
                       style: TextStyle(
@@ -440,7 +571,10 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kBlue,
                       foregroundColor: kWhite,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 10,
+                      ),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -463,33 +597,4 @@ class _CoursesScreenState extends State<CoursesScreen> {
       },
     );
   }
-
-  Widget _buildErrorView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _error,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w600,
-                color: kMuted,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _fetchCourses,
-              style: ElevatedButton.styleFrom(backgroundColor: kBlue),
-              child: const Text('Retry', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
 }

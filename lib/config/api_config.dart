@@ -1,12 +1,12 @@
 class ApiConfig {
   // ✅ Choose ONE depending on how you run your app:
 
-    // Web browser (Edge, Chrome, etc.)
-    // Override when needed: flutter run -d edge --dart-define=API_BASE_URL=http://localhost:5000
-    static const String baseUrl = String.fromEnvironment(
-        'API_BASE_URL',
-        defaultValue: 'http://localhost:5000',
-    );
+  // Web browser (Edge, Chrome, etc.)
+  // Override when needed: flutter run -d edge --dart-define=API_BASE_URL=http://localhost:5000
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:5000',
+  );
 
   // Android Emulator:
   // static const String baseUrl = "http://10.0.2.2:3000";
@@ -21,7 +21,8 @@ class ApiConfig {
 
   // Auth
   static String get login => "$baseUrl$apiPrefix/auth/login";
-  static String get loginLocalFallback => "http://127.0.0.1:5000$apiPrefix/auth/login";
+  static String get loginLocalFallback =>
+      "http://127.0.0.1:5000$apiPrefix/auth/login";
   static List<String> get loginCandidates {
     final hostBased = 'http://${Uri.base.host}:5000$apiPrefix/auth/login';
     final endpoints = <String>[
@@ -33,12 +34,17 @@ class ApiConfig {
     return endpoints.toSet().toList();
   }
   static String get register => "$baseUrl$apiPrefix/auth/register";
-  static String get forgotPassword => "$baseUrl$apiPrefix/auth/forgot-password";
+  static String get profile => "$baseUrl$apiPrefix/auth/profile";
+  static String get changePassword =>
+      "$baseUrl$apiPrefix/auth/change-password";
+  static String get forgotPassword =>
+      "$baseUrl$apiPrefix/auth/forgot-password";
   static String get resetPassword => "$baseUrl$apiPrefix/auth/reset-password";
   static String get resendCode => "$baseUrl$apiPrefix/auth/resend-code";
 
   // States
-  static String get stateRequirements => "$baseUrl$apiPrefix/states/requirements";
+  static String get stateRequirements =>
+      "$baseUrl$apiPrefix/states/requirements";
   static String stateRequirementDetail(String stateCode) =>
       "$baseUrl$apiPrefix/states/requirements/$stateCode";
 
@@ -50,9 +56,14 @@ class ApiConfig {
       "$baseUrl$apiPrefix/resources/newsletter-subscribe";
 
   // Exam prep
-  static String get examPrepQuestions => "$baseUrl$apiPrefix/exam-prep/questions";
-  static String get examPrepAnalytics => "$baseUrl$apiPrefix/exam-prep/analytics";
+  static String get examPrepQuestions =>
+      "$baseUrl$apiPrefix/exam-prep/questions";
+  static String get examPrepAnalytics =>
+      "$baseUrl$apiPrefix/exam-prep/analytics";
   static String get examPrepAttempt => "$baseUrl$apiPrefix/exam-prep/attempt";
+
+  // Dashboard
+  static String get dashboard => "$baseUrl$apiPrefix/dashboard";
 
   // Notifications
   static String get notifications => "$baseUrl$apiPrefix/notifications";
