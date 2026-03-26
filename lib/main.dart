@@ -15,6 +15,7 @@ import 'package:nmls_mobile/catalog/repositories/course_repository.dart';
 import 'package:nmls_mobile/catalog/token_provider.dart';
 import 'package:nmls_mobile/catalog/checkout_screen.dart';
 import 'package:nmls_mobile/catalog/order_placed_screen.dart';
+import 'package:nmls_mobile/catalog/course_portal_screen.dart';
 import 'package:nmls_mobile/config/api_config.dart';
 
 void main() {
@@ -52,6 +53,22 @@ class MainApp extends StatelessWidget {
           textTheme: Theme.of(context).textTheme.apply(fontFamily: 'Poppins'),
         ),
         initialRoute: '/login',
+        onGenerateRoute: (settings) {
+          final name = settings.name;
+          if (name != null) {
+            const prefix = '/courses/';
+            const suffix = '/learn';
+            if (name.startsWith(prefix) && name.endsWith(suffix)) {
+              final courseId = name.substring(prefix.length, name.length - suffix.length);
+              if (courseId.trim().isNotEmpty) {
+                return MaterialPageRoute(
+                  builder: (_) => CoursePortalScreen(courseId: courseId.trim()),
+                );
+              }
+            }
+          }
+          return null;
+        },
         routes: {
           '/login': (context) => LoginScreen(),
           '/signup': (context) => const RegisterScreen(),

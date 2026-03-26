@@ -8,6 +8,8 @@ import 'package:nmls_mobile/ce_tracker_screen.dart';
 import 'package:nmls_mobile/exam_prep_screen.dart';
 import 'package:nmls_mobile/my_certificates_screen.dart';
 import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
+import 'package:nmls_mobile/services/auth_service.dart';
+import 'package:nmls_mobile/login_screen.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -92,7 +94,14 @@ class _SidebarDrawer extends StatelessWidget {
             Divider(color: Colors.white54),
             const SizedBox(height: 20),
             _DrawerItem(icon: Icons.logout, label: 'Sign Out', onTap: () {
-              // Handle sign out
+              Navigator.of(context).pop(); // close drawer
+              final nav = Navigator.of(context);
+              AuthService.logout().then((_) {
+                nav.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => LoginScreen()),
+                  (route) => false,
+                );
+              });
             }),
           ],
         ),

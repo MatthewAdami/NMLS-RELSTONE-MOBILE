@@ -5,6 +5,8 @@ import 'package:nmls_mobile/edit_profile_screen.dart';
 import 'package:nmls_mobile/faq_screen.dart';
 import 'package:nmls_mobile/my_certificates_screen.dart';
 import 'package:nmls_mobile/orders_screen.dart';
+import 'package:nmls_mobile/services/auth_service.dart';
+import 'package:nmls_mobile/login_screen.dart';
 
 const _kDark = Color(0xFF091925);
 const _kBlue = Color(0xFF2EABFE);
@@ -256,7 +258,15 @@ class MoreSheet extends StatelessWidget {
                 fontSize: 16,
               ),
             ),
-            onTap: onSignOut,
+            onTap: () async {
+              Navigator.of(context).pop(); // close sheet
+              await AuthService.logout();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => LoginScreen()),
+                (route) => false,
+              );
+            },
           ),
           const SizedBox(height: 16),
         ],
