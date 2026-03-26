@@ -7,11 +7,21 @@ class AuthRepository {
   const AuthRepository(this.apiClient);
 
   Future<UserModel> fetchMe() async {
-    final response = await apiClient.getJson('/api/auth/me');
-    final userJson = response['user'];
+    // Prefer /api/auth/profile, fallback to older /api/auth/me.
+    Map<String, dynamic> response;
+    try {
+      response = await apiClient.getJson('/api/auth/profile');
+    } on HttpErrorException catch (e) {
+      if (e.statusCode == 404) {
+        response = await apiClient.getJson('/api/auth/me');
+      } else {
+        rethrow;
+      }
+    }
 
+    final userJson = response['user'];
     if (userJson is! Map<String, dynamic>) {
-      throw const ApiClientException('Invalid /api/auth/me response shape.');
+      throw const ApiClientException('Invalid auth profile response shape.');
     }
 
     return UserModel.fromJson(userJson);

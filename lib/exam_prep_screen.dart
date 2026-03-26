@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
 import 'exam_prep_center_screen.dart';
 import 'config/api_config.dart';
+import 'package:nmls_mobile/catalog/token_provider.dart';
+import 'package:nmls_mobile/services/auth_service.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -47,11 +49,16 @@ class _ExamPrepScreenState extends State<ExamPrepScreen> {
   String _flashError = '';
   List<_FlashcardRow> _flashcards = const [];
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (widget.token != null && widget.token!.isNotEmpty)
-          'Authorization': 'Bearer ${widget.token}',
-      };
+  Future<Map<String, String>> _buildHeaders() async {
+    final token = (widget.token != null && widget.token!.trim().isNotEmpty)
+        ? widget.token!.trim()
+        : await SharedPreferencesTokenProvider().getToken();
+
+    return <String, String>{
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   @override
   void initState() {
@@ -66,13 +73,22 @@ class _ExamPrepScreenState extends State<ExamPrepScreen> {
     });
 
     try {
+      final headers = await _buildHeaders();
       final res = await http
-          .get(Uri.parse(ApiConfig.examPrepAnalytics), headers: _headers)
+          .get(Uri.parse(ApiConfig.examPrepAnalytics), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
 
       if (res.statusCode != 200) {
+        if (res.statusCode == 401 || res.statusCode == 403) {
+          await AuthService.logout();
+          setState(() {
+            _loadError = 'Session expired. Please sign in again.';
+            _isLoading = false;
+          });
+          return;
+        }
         setState(() {
           _loadError = 'Failed to load analytics (${res.statusCode}).';
           _isLoading = false;
@@ -129,13 +145,22 @@ class _ExamPrepScreenState extends State<ExamPrepScreen> {
     });
 
     try {
+      final headers = await _buildHeaders();
       final res = await http
-          .get(Uri.parse(ApiConfig.examPrepQuestions), headers: _headers)
+          .get(Uri.parse(ApiConfig.examPrepQuestions), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
 
       if (res.statusCode != 200) {
+        if (res.statusCode == 401 || res.statusCode == 403) {
+          await AuthService.logout();
+          setState(() {
+            _flashError = 'Session expired. Please sign in again.';
+            _flashLoading = false;
+          });
+          return;
+        }
         setState(() {
           _flashError = 'Failed to load flashcards (${res.statusCode}).';
           _flashLoading = false;

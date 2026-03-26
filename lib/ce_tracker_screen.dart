@@ -1,6 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/courses_screen.dart';
+import 'package:nmls_mobile/config/api_config.dart';
 import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
+import 'package:nmls_mobile/catalog/token_provider.dart';
+import 'package:nmls_mobile/services/auth_service.dart';
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
 const kBlue        = Color(0xFF2EABFE);
@@ -31,6 +37,115 @@ class CETrackerScreen extends StatefulWidget {
 }
 
 class _CETrackerScreenState extends State<CETrackerScreen> {
+  bool _loading = true;
+  String _error = '';
+
+  String _stateCode = '';
+  String _stateName = '';
+
+  int _requiredHours = 0;
+  int _completedHours = 0;
+
+  List<_CeCompletionRow> _completedCourses = const [];
+
+  // Authorization headers can be missing when the screen is opened from a
+  // navigation path that does not pass `token`. We fallback to
+  // SharedPreferences inside `_loadCeData()`.
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCeData();
+  }
+
+  Future<void> _loadCeData() async {
+    setState(() {
+      _loading = true;
+      _error = '';
+    });
+
+    try {
+      final token = (widget.token != null && widget.token!.trim().isNotEmpty)
+          ? widget.token!.trim()
+          : await SharedPreferencesTokenProvider().getToken();
+
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
+
+      final dashRes = await http
+          .get(Uri.parse(ApiConfig.dashboard), headers: headers)
+          .timeout(const Duration(seconds: 15));
+
+      if (!mounted) return;
+
+      if (dashRes.statusCode != 200) {
+        if (dashRes.statusCode == 401 || dashRes.statusCode == 403) {
+          await AuthService.logout();
+          setState(() {
+            _error = 'Session expired. Please sign in again.';
+            _loading = false;
+          });
+          return;
+        }
+        setState(() {
+          _error = 'Failed to load dashboard (${dashRes.statusCode}).';
+          _loading = false;
+        });
+        return;
+      }
+
+      final dash = jsonDecode(dashRes.body) as Map<String, dynamic>;
+      final profile = Map<String, dynamic>.from((dash['profile'] as Map?) ?? {});
+      final completions = Map<String, dynamic>.from((dash['completions'] as Map?) ?? {});
+      final ceListRaw = (completions['CE'] as List?) ?? const [];
+
+      final stateCode = (profile['state'] ?? '').toString().trim().toUpperCase();
+
+      final ceRows = ceListRaw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .map(_CeCompletionRow.fromApi)
+          .whereType<_CeCompletionRow>()
+          .toList()
+        ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+
+      final completedHours = ceRows.fold<int>(0, (sum, e) => sum + e.creditHours);
+
+      int requiredHours = 0;
+      String stateName = '';
+      if (stateCode.isNotEmpty && stateCode != 'NOT SET') {
+        final reqRes = await http
+            .get(
+              Uri.parse(ApiConfig.stateRequirementDetail(stateCode)),
+            )
+            .timeout(const Duration(seconds: 15));
+
+        if (reqRes.statusCode == 200) {
+          final req = jsonDecode(reqRes.body) as Map<String, dynamic>;
+          stateName = (req['stateName'] ?? '').toString().trim();
+          final ceRenewal = Map<String, dynamic>.from((req['ceRenewal'] as Map?) ?? {});
+          requiredHours = (ceRenewal['hours'] as num?)?.toInt() ?? 0;
+        }
+      }
+
+      setState(() {
+        _stateCode = stateCode;
+        _stateName = stateName;
+        _requiredHours = requiredHours;
+        _completedHours = completedHours;
+        _completedCourses = ceRows;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Unable to reach CE API. Please retry.';
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +177,14 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
   }
 
   Widget _buildTopSection() {
+    final required = _requiredHours <= 0 ? 8 : _requiredHours;
+    final completed = _completedHours.clamp(0, required);
+    final remaining = (required - completed).clamp(0, required);
+    final progress = required == 0 ? 0.0 : (completed / required).clamp(0.0, 1.0);
+    final stateLabel = _stateName.isNotEmpty
+        ? _stateName
+        : (_stateCode.isNotEmpty && _stateCode != 'NOT SET' ? _stateCode : 'Your State');
+
     return Container(
       color: kDark,
       width: double.infinity,
@@ -91,7 +214,7 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
               fit: StackFit.expand,
               children: [
                 CircularProgressIndicator(
-                  value: 20 / 24,
+                  value: progress,
                   strokeWidth: 12,
                   color: kBlue,
                   backgroundColor: kBlue.withValues(alpha: 0.15),
@@ -99,8 +222,8 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      '20',
+                    Text(
+                      '$completed',
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.w700,
@@ -110,7 +233,7 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
                       ),
                     ),
                     Text(
-                      'of 24 hrs',
+                      'of $required hrs',
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontWeight: FontWeight.w400,
@@ -125,7 +248,7 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'California DRE · Renewal Cycle 2024–2026',
+            '$stateLabel · Continuing Education',
             style: TextStyle(
               fontFamily: 'Poppins',
               fontWeight: FontWeight.w400,
@@ -138,21 +261,21 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
           Row(
             children: [
               _buildStatCard(
-                value: '24',
+                value: '$required',
                 label: 'Required',
                 valueColor: Colors.white,
                 bgColor: const Color(0xFF142C3F), // Approximate dark muted blue
               ),
               const SizedBox(width: 8),
               _buildStatCard(
-                value: '20',
+                value: '$completed',
                 label: 'Completed',
                 valueColor: const Color(0xFF4ADE80), // Green text
                 bgColor: const Color(0xFF13362B), // Dark Green bg
               ),
               const SizedBox(width: 8),
               _buildStatCard(
-                value: '4',
+                value: '$remaining',
                 label: 'Remaining',
                 valueColor: const Color(0xFFFF6B6B), // Red text
                 bgColor: const Color(0xFF3B1E26), // Dark Red bg
@@ -160,32 +283,44 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          // Renewal Deadline
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2A1C24),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.calendar_today_outlined, color: Color(0xFFFF6B6B), size: 16),
-                const SizedBox(width: 8),
-                const Text(
-                  'Renewal deadline: Jun 18, 2026 — 28 days away',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                    color: Color(0xFFFF6B6B),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (_error.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                children: [
+                  Text(
+                    _error,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.75),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: _loadCeData,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kBlue,
+                      side: BorderSide(color: kBlue.withValues(alpha: 0.6)),
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else
+            const SizedBox(height: 8),
         ],
       ),
     );
@@ -233,12 +368,7 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
   }
 
   Widget _buildBottomSection() {
-    final completedCourses = [
-      {'title': 'CE: Fair Housing', 'date': 'Jan 2026', 'hrs': 2},
-      {'title': 'CE: Ethics & Conduct', 'date': 'Nov 2025', 'hrs': 3},
-      {'title': 'CE: Agency Relationships', 'date': 'Sep 2025', 'hrs': 3},
-      {'title': 'Real Estate Finance', 'date': 'Mar 2025', 'hrs': 12},
-    ];
+    final completedCourses = _completedCourses;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -279,7 +409,7 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                course['title'] as String,
+                                course.title,
                                 style: TextStyle(
                                   fontFamily: 'Poppins',
                                   fontWeight: FontWeight.w600,
@@ -289,7 +419,7 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Completed ${course['date']}',
+                                'Completed ${course.completedLabel}',
                                 style: TextStyle(
                                   fontFamily: 'Poppins',
                                   fontWeight: FontWeight.w400,
@@ -304,7 +434,7 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
                             textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
-                                '${course['hrs']}',
+                                '${course.creditHours}',
                                 style: TextStyle(
                                   fontFamily: 'Poppins',
                                   fontWeight: FontWeight.w600,
@@ -372,7 +502,9 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            '4 hrs needed by Jun 18, 2026',
+            _requiredHours > 0
+                ? '${(_requiredHours - _completedHours).clamp(0, _requiredHours)} hrs remaining'
+                : 'Complete your annual CE hours to stay compliant.',
             style: TextStyle(
               fontFamily: 'Poppins',
               fontWeight: FontWeight.w500,
@@ -386,4 +518,46 @@ class _CETrackerScreenState extends State<CETrackerScreen> {
     );
   }
 
+}
+
+class _CeCompletionRow {
+  final String title;
+  final int creditHours;
+  final DateTime completedAt;
+
+  const _CeCompletionRow({
+    required this.title,
+    required this.creditHours,
+    required this.completedAt,
+  });
+
+  static _CeCompletionRow? fromApi(Map<String, dynamic> data) {
+    final courseId = data['course_id'];
+    final course = courseId is Map ? Map<String, dynamic>.from(courseId) : null;
+    final title = (course?['title'] ?? '').toString().trim();
+    final hours = (course?['credit_hours'] as num?)?.toInt() ?? 0;
+    final completedAtRaw = (data['completed_at'] ?? '').toString().trim();
+    final completedAt = DateTime.tryParse(completedAtRaw);
+    if (title.isEmpty || completedAt == null) return null;
+    return _CeCompletionRow(title: title, creditHours: hours, completedAt: completedAt);
+  }
+
+  String get completedLabel {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final m = months[(completedAt.month - 1).clamp(0, 11)];
+    return '$m ${completedAt.year}';
+  }
 }

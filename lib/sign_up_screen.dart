@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'config/api_config.dart';
 
 // ─── Theme Constants ─────────────────────────────────────────────────
 const kNavy = Color(0xFF091925);
@@ -43,7 +44,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:3000/api/auth/register'),
+        Uri.parse(ApiConfig.register),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'name': _nameController.text,

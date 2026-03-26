@@ -5,6 +5,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
+import 'package:nmls_mobile/catalog/token_provider.dart';
+import 'package:nmls_mobile/services/auth_service.dart';
 
 const kPrepDark = Color(0xFF091925);
 const kPrepBlue = Color(0xFF2EABFE);
@@ -83,11 +85,16 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
   String _flashTopicFilter = 'All';
   String _flashDifficultyFilter = 'All';
 
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    if (widget.token != null && widget.token!.isNotEmpty)
-      'Authorization': 'Bearer ${widget.token}',
-  };
+  Future<Map<String, String>> _buildHeaders() async {
+    final token = (widget.token != null && widget.token!.trim().isNotEmpty)
+        ? widget.token!.trim()
+        : await SharedPreferencesTokenProvider().getToken();
+
+    return <String, String>{
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   List<String> get _topics {
     final discovered = _questionBank.map((q) => q.topic).toSet().toList()
@@ -223,11 +230,20 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
     });
 
     try {
+      final headers = await _buildHeaders();
       final res = await http
-          .get(Uri.parse(ApiConfig.examPrepQuestions), headers: _headers)
+          .get(Uri.parse(ApiConfig.examPrepQuestions), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (res.statusCode != 200) {
+        if (res.statusCode == 401 || res.statusCode == 403) {
+          await AuthService.logout();
+          setState(() {
+            _loadError = 'Session expired. Please sign in again.';
+            _questionBank = <_PrepQuestion>[];
+          });
+          return;
+        }
         setState(() {
           _loadError = 'Failed to load exam bank (${res.statusCode})';
           _questionBank = <_PrepQuestion>[];
@@ -309,11 +325,17 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
     setState(() => _isLoadingAnalytics = true);
 
     try {
+      final headers = await _buildHeaders();
       final res = await http
-          .get(Uri.parse(ApiConfig.examPrepAnalytics), headers: _headers)
+          .get(Uri.parse(ApiConfig.examPrepAnalytics), headers: headers)
           .timeout(const Duration(seconds: 15));
 
-      if (res.statusCode != 200) return;
+      if (res.statusCode != 200) {
+        if (res.statusCode == 401 || res.statusCode == 403) {
+          await AuthService.logout();
+        }
+        return;
+      }
 
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final trend = (data['trend'] as List?) ?? const [];
@@ -616,9 +638,10 @@ class _ExamPrepCenterScreenState extends State<ExamPrepCenterScreen> {
 
   Future<void> _saveAttempt(_SessionResult result, int timeSpentSeconds) async {
     try {
+      final headers = await _buildHeaders();
       await http.post(
         Uri.parse(ApiConfig.examPrepAttempt),
-        headers: _headers,
+        headers: headers,
         body: jsonEncode({
           'mode': result.mode,
           'total': result.total,

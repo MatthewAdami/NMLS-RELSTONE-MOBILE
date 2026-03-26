@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
+import 'package:nmls_mobile/catalog/token_provider.dart';
 
 const kNtfDark = Color(0xFF091925);
 const kNtfBlue = Color(0xFF2EABFE);
@@ -25,11 +26,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List<_NotificationItem> _items = <_NotificationItem>[];
   String _filter = 'all';
 
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    if (widget.token != null && widget.token!.isNotEmpty)
-      'Authorization': 'Bearer ${widget.token}',
-  };
+  Future<Map<String, String>> _buildHeaders() async {
+    final token = (widget.token != null && widget.token!.trim().isNotEmpty)
+        ? widget.token!.trim()
+        : await SharedPreferencesTokenProvider().getToken();
+
+    return <String, String>{
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
 
   @override
   void initState() {
@@ -44,8 +50,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
 
     try {
+      final headers = await _buildHeaders();
       final res = await http
-          .get(Uri.parse(ApiConfig.notifications), headers: _headers)
+          .get(Uri.parse(ApiConfig.notifications), headers: headers)
           .timeout(const Duration(seconds: 15));
 
       if (res.statusCode != 200) {

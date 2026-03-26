@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -103,6 +104,83 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     return res.status(500).json({ message: 'Server error during login' });
+  }
+});
+
+// ─── GET /api/auth/me (compat for catalog module) ──────────────────────────────
+// Returns 200: { user: { id, name, email, nmls_id, state, role } }
+router.get('/me', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    return res.status(200).json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        nmls_id: user.nmls_id,
+        state: user.state,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error('Auth me error:', err);
+    return res.status(500).json({ message: 'Server error fetching user profile' });
+  }
+});
+
+// ─── GET /api/auth/profile (used by other screens) ────────────────────────────
+router.get('/profile', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    return res.status(200).json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        nmls_id: user.nmls_id,
+        state: user.state,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error('Auth profile error:', err);
+    return res.status(500).json({ message: 'Server error fetching user profile' });
+  }
+});
+
+// ─── POST /api/auth/change-password ───────────────────────────────────────────
+// Body: { currentPassword, newPassword }
+router.post('/change-password', requireAuth, async (req, res) => {
+  try {
+    const currentPassword = String(req.body?.currentPassword ?? '').trim();
+    const newPassword = String(req.body?.newPassword ?? '').trim();
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return res.status(200).json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('Change password error:', err);
+    return res.status(500).json({ message: 'Server error changing password' });
   }
 });
 

@@ -2,12 +2,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
+import 'package:nmls_mobile/catalog/token_provider.dart';
 import 'package:nmls_mobile/faq_screen.dart';
 import 'contact_support_page.dart';
 import 'package:nmls_mobile/ce_tracker_screen.dart';
 import 'package:nmls_mobile/exam_prep_screen.dart';
 import 'package:nmls_mobile/my_certificates_screen.dart';
 import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
+import 'package:nmls_mobile/services/auth_service.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -163,10 +165,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   String _error   = '';
 
   String get _apiBase => '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}';
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    if (widget.token != null) 'Authorization': 'Bearer ${widget.token}',
-  };
+  // NOTE: Authorization headers can be missing if the screen is built from a deep
+  // link or a navigation path that doesn't carry `token`. We handle that in
+  // `_fetchDashboard()` by falling back to SharedPreferences.
 
   // ── Derived getters ───────────────────────────────────────────────
   Map<String, dynamic> get _profile =>
@@ -261,13 +262,27 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _fetchDashboard() async {
     setState(() { _loading = true; _error = ''; });
     try {
+      final token = (widget.token != null && widget.token!.trim().isNotEmpty)
+          ? widget.token!.trim()
+          : await SharedPreferencesTokenProvider().getToken();
+
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
+
       final res = await http
-          .get(Uri.parse('$_apiBase/dashboard'), headers: _headers)
+          .get(Uri.parse('$_apiBase/dashboard'), headers: headers)
           .timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
         setState(() => _dashboard = Map<String, dynamic>.from(jsonDecode(res.body) as Map));
       } else {
-        setState(() => _error = 'Failed to load (${res.statusCode})');
+        if (res.statusCode == 401 || res.statusCode == 403) {
+          await AuthService.logout();
+          setState(() => _error = 'Session expired. Please sign in again.');
+        } else {
+          setState(() => _error = 'Failed to load (${res.statusCode})');
+        }
       }
     } catch (e) {
       setState(() => _error = 'Network error: $e');

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Import your separate screen files
 import 'dashboard_screen.dart';
 import 'sign_up_screen.dart';
+import 'config/api_config.dart';
 
 // ─── Theme Constants ─────────────────────────────────────────────────
 const kRed = Color(0xFFC0392B);
@@ -40,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final response = await http
           .post(
-            Uri.parse('http://localhost:3000/api/auth/login'),
+            Uri.parse(ApiConfig.login),
             headers: {'Content-Type': 'application/json'},
             body: json.encode({
               'email': _emailController.text,
