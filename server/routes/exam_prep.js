@@ -100,21 +100,36 @@ function buildFlashcards(questions) {
   return shuffled.slice(0, 80);
 }
 
-async function loadExamQuestions({ topic, assignedCourseIds, isAdmin }) {
+async function loadExamQuestions({ topic, assignedCourseIds, isAdmin, userState }) {
   const db = mongoose.connection.db;
   if (!db) throw new Error('Database connection is not initialized');
 
-  const courseQuery = isAdmin
-    ? { 'modules.quiz.0': { $exists: true } }
-    : {
-        _id: { $in: assignedCourseIds || [] },
+  // Admins can access all quiz-bearing courses.
+  // Students are normally scoped by `assigned_course_ids`, but in practice some
+  // student accounts may have none assigned yet. In that case, we fall back to
+  // the student's state (if present) so Exam Prep still works.
+  const courseQuery = (() => {
+    if (isAdmin) return { 'modules.quiz.0': { $exists: true } };
+
+    if (Array.isArray(assignedCourseIds) && assignedCourseIds.length > 0) {
+      return {
+        _id: { $in: assignedCourseIds },
         'modules.quiz.0': { $exists: true },
       };
+    }
 
-  // For students: if nothing is assigned, return an empty bank.
-  if (!isAdmin && (!assignedCourseIds || assignedCourseIds.length === 0)) {
-    return { questions: [], topics: [] };
-  }
+    const state = String(userState || '').trim().toUpperCase();
+    if (state) {
+      // No assignments: fallback to the student's state.
+      return {
+        states_approved: { $in: [state] },
+        'modules.quiz.0': { $exists: true },
+      };
+    }
+
+    // Last-resort fallback: any quiz-bearing course.
+    return { 'modules.quiz.0': { $exists: true } };
+  })();
 
   const courses = await db
     .collection('courses')
@@ -166,15 +181,19 @@ router.get('/questions', requireAuth, async (req, res) => {
     // Students should only access their assigned courses.
     const user = isAdmin
       ? null
-      : await User.findById(req.user.id).select('assigned_course_ids').lean();
+      : await User.findById(req.user.id)
+          .select('assigned_course_ids state')
+          .lean();
     const assignedCourseIds = isAdmin
       ? null
       : (user?.assigned_course_ids || []).map((id) => String(id).trim()).filter(Boolean);
+    const userState = isAdmin ? null : String(user?.state || '').trim();
 
     const { questions, topics } = await loadExamQuestions({
       topic,
       assignedCourseIds,
       isAdmin,
+      userState,
     });
     const flashcards = buildFlashcards(questions);
 
