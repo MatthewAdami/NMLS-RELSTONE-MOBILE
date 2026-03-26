@@ -10,6 +10,9 @@ class CourseRepository {
     required String state,
     String? type,
   }) async {
+    // Course Catalog should browse courses available for the user's state.
+    // The backend's `GET /api/courses` endpoint is scoped to `assigned_course_ids`,
+    // which would make the catalog empty for users without assignments.
     final query = <String, String>{'state': state};
 
     final normalizedType = type?.trim();
@@ -19,7 +22,7 @@ class CourseRepository {
       query['type'] = normalizedType;
     }
 
-    final response = await apiClient.getJson('/api/courses', query: query);
+    final response = await apiClient.getJson('/api/courses/available', query: query);
     final dynamic rawList = response['courses'] ?? response['data'] ?? response;
 
     if (rawList is! List) {

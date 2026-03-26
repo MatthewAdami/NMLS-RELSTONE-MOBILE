@@ -94,4 +94,73 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
+// ─── GET /api/courses/available ─────────────────────────────────────────────
+// Used by the Course Catalog to browse courses by the user's state (and optional type).
+// Unlike `GET /api/courses`, this does NOT depend on `assigned_course_ids`.
+router.get('/available', requireAuth, async (req, res) => {
+  try {
+    const { type, state } = req.query;
+
+    // Prefer the authenticated user's state to prevent users from browsing
+    // courses outside their allowed state.
+    const user = await User.findById(req.user.id).select('state').lean();
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const userState = String(user.state || state || '').toUpperCase().trim();
+    if (!userState || userState === 'NOT SET') {
+      return res
+        .status(400)
+        .json({ message: 'User state is required to browse courses' });
+    }
+
+    const normalizedType = type ? String(type).toUpperCase().trim() : null;
+    const filter = {
+      states_approved: { $in: [userState] },
+    };
+
+    // Many course docs include `is_active`; if missing, Mongo will treat it as null,
+    // and `$ne: false` will still match (so we don't accidentally hide courses).
+    filter.is_active = { $ne: false };
+
+    if (normalizedType && normalizedType !== 'ALL') {
+      filter.type = normalizedType;
+    }
+
+    const courses = await Course.find(filter).lean();
+    return res.status(200).json(courses);
+  } catch (error) {
+    console.error('Courses available route error:', error);
+    return res.status(500).json({ message: 'Server error loading available courses' });
+  }
+});
+
+// ─── GET /api/courses/:id ───────────────────────────────────────────────────
+// Used by the Course Details screen. We enforce that the course matches the
+// user's state.
+router.get('/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(req.user.id).select('state').lean();
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const userState = String(user.state || '').toUpperCase().trim();
+    if (!userState || userState === 'NOT SET') {
+      return res.status(400).json({ message: 'User state is required' });
+    }
+
+    const course = await Course.findOne({
+      _id: id,
+      is_active: { $ne: false },
+      states_approved: { $in: [userState] },
+    }).lean();
+
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+    return res.status(200).json(course);
+  } catch (error) {
+    console.error('Course details route error:', error);
+    return res.status(500).json({ message: 'Server error loading course details' });
+  }
+});
+
 module.exports = router;
