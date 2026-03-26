@@ -18,5 +18,7 @@ class ApiConfig {
   // ✅ Your Node routes (based on server.js: app.use('/api/auth', ...))
   static String get login => "$baseUrl$apiPrefix/auth/login";
   static String get register => "$baseUrl$apiPrefix/auth/register";
+  static String get profile => "$baseUrl$apiPrefix/auth/profile";
+  static String get changePassword => "$baseUrl$apiPrefix/auth/change-password";
   static String get health => "$baseUrl$apiPrefix/health";
 }

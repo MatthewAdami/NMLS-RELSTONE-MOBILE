@@ -103,4 +103,71 @@ class AuthService {
     final token = await getToken();
     return token != null && token.isNotEmpty;
   }
+
+  /// Update profile (Account Setup)
+  /// Calls PUT /api/auth/profile
+  static Future<Map<String, dynamic>> updateProfile({
+    required String name,
+    String? phone,
+    String? address,
+    String? nmlsId,
+    String? state,
+  }) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      return {'success': false, 'message': 'Not authenticated'};
+    }
+
+    final result = await ApiClient.put(
+      ApiConfig.profile,
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+      body: {
+        'name': name.trim(),
+        'phone': (phone != null && phone.trim().isNotEmpty) ? phone.trim() : null,
+        'address': (address != null && address.trim().isNotEmpty) ? address.trim() : null,
+        'nmls_id': (nmlsId != null && nmlsId.trim().isNotEmpty) ? nmlsId.trim() : null,
+        'state': (state != null && state.trim().isNotEmpty) ? state.trim() : null,
+      },
+    );
+
+    final int status = result['statusCode'] as int;
+    final Map<String, dynamic> data = result['data'] as Map<String, dynamic>;
+
+    if (status >= 200 && status < 300) {
+      return {'success': true, 'data': data};
+    }
+
+    return {'success': false, 'message': data['message'] ?? 'Profile update failed'};
+  }
+
+  /// Change password (Account Setup)
+  /// Calls PUT /api/auth/change-password with currentPassword="__setup__"
+  static Future<Map<String, dynamic>> changePassword({required String newPassword}) async {
+    final token = await getToken();
+    if (token == null || token.isEmpty) {
+      return {'success': false, 'message': 'Not authenticated'};
+    }
+
+    final result = await ApiClient.put(
+      ApiConfig.changePassword,
+      headers: {
+        'Authorization': 'Bearer $token',
+      },
+      body: {
+        'currentPassword': '__setup__',
+        'newPassword': newPassword,
+      },
+    );
+
+    final int status = result['statusCode'] as int;
+    final Map<String, dynamic> data = result['data'] as Map<String, dynamic>;
+
+    if (status >= 200 && status < 300) {
+      return {'success': true, 'data': data};
+    }
+
+    return {'success': false, 'message': data['message'] ?? 'Password change failed'};
+  }
 }

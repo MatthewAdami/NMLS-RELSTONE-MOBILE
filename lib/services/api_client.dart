@@ -29,4 +29,31 @@ class ApiClient {
       'data': data,
     };
   }
+
+  static Future<Map<String, dynamic>> put(
+    String url, {
+    Map<String, String>? headers,
+    Map<String, dynamic>? body,
+  }) async {
+    final res = await http.put(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        ...?headers,
+      },
+      body: jsonEncode(body ?? {}),
+    );
+
+    Map<String, dynamic> data;
+    try {
+      data = jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {
+      data = {'message': res.body};
+    }
+
+    return {
+      'statusCode': res.statusCode,
+      'data': data,
+    };
+  }
 }

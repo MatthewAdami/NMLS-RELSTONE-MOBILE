@@ -161,6 +161,21 @@ class MoreSheet extends StatelessWidget {
             },
           ),
           ListTile(
+            leading: const Icon(Icons.info_outline, color: _kBlue),
+            title: const Text(
+              'Account Setup',
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w500,
+                fontSize: 16,
+              ),
+            ),
+            onTap: () {
+              // Skip the guide and go straight to the setup flow.
+              Navigator.of(context, rootNavigator: true).pushNamed('/account-setup');
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.receipt_long_outlined, color: _kBlue),
             title: const Text(
               'Orders & Billing',
