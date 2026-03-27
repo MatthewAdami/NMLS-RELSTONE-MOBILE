@@ -10,6 +10,8 @@ import 'package:nmls_mobile/my_certificates_screen.dart';
 import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
 import 'package:nmls_mobile/services/auth_service.dart';
 import 'package:nmls_mobile/login_screen.dart';
+import 'package:nmls_mobile/catalog/course_portal_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
 const kDark        = Color(0xFF091925);
@@ -163,6 +165,29 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (widget.token != null) 'Authorization': 'Bearer ${widget.token}',
   };
 
+  Future<Map<String, String>> _requestHeaders() async {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+
+    var token = widget.token?.trim() ?? '';
+    if (token.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      token = (prefs.getString('token') ?? '').trim();
+    }
+    if (token.isNotEmpty) {
+      headers['Authorization'] =
+          token.toLowerCase().startsWith('bearer ') ? token : 'Bearer $token';
+    }
+    return headers;
+  }
+
+  num _num(dynamic value) {
+    if (value is num) return value;
+    if (value is String) return num.tryParse(value.trim()) ?? 0;
+    return 0;
+  }
+
   // ── Derived getters ───────────────────────────────────────────────
   Map<String, dynamic> get _profile =>
       Map<String, dynamic>.from(_dashboard?['profile'] as Map? ?? {});
@@ -240,6 +265,349 @@ class _DashboardScreenState extends State<DashboardScreen>
     return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
+  List<Map<String, dynamic>> get _availableCourses => _firstListFromKeys([
+        'available_courses',
+        'availableCourses',
+        'available',
+        'courses',
+        'data',
+      ]);
+
+  List<Map<String, dynamic>> _mapListFrom(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _firstListFromKeys(List<String> keys) {
+    for (final key in keys) {
+      final items = _mapListFrom(_dashboard?[key]);
+      if (items.isNotEmpty) return items;
+    }
+    return const [];
+  }
+
+  int get _completedCount {
+    final stats = Map<String, dynamic>.from(_dashboard?['stats'] as Map? ?? {});
+    final fromStats = stats['completed'] ?? stats['completed_count'];
+    if (fromStats is num) return fromStats.toInt();
+    if (_allCompletions.isNotEmpty) return _allCompletions.length;
+    int count = 0;
+    for (final c in _availableCourses) {
+      final progressRaw = c['progress_percent'] ??
+          c['progressPercent'] ??
+          c['progress'] ??
+          c['percent_complete'];
+      var progress = _num(progressRaw).toDouble();
+      if (progress > 1) progress = progress / 100.0;
+      final done = (c['is_completed'] == true) ||
+          (c['isCompleted'] == true) ||
+          (c['completed'] == true) ||
+          progress >= 1.0;
+      if (done) count += 1;
+    }
+    return count;
+  }
+
+  int get _inProgressCount {
+    final stats = Map<String, dynamic>.from(_dashboard?['stats'] as Map? ?? {});
+    final fromStats = stats['in_progress'] ?? stats['in_progress_count'];
+    if (fromStats is num) return fromStats.toInt();
+    int count = 0;
+    for (final c in _availableCourses) {
+      final progressRaw = c['progress_percent'] ??
+          c['progressPercent'] ??
+          c['progress'] ??
+          c['percent_complete'];
+      var progress = _num(progressRaw).toDouble();
+      if (progress > 1) progress = progress / 100.0;
+      final done = (c['is_completed'] == true) ||
+          (c['isCompleted'] == true) ||
+          (c['completed'] == true) ||
+          progress >= 1.0;
+      if (!done && progress > 0) count += 1;
+    }
+    if (count > 0) return count;
+    final learning = _myLearningItems;
+    return learning.isNotEmpty ? learning.length : _orders.length;
+  }
+
+  String get _ceHoursLabel {
+    bool isCe(Map<String, dynamic> item) {
+      final t = (item['type'] ?? item['course_type'] ?? '').toString().trim().toUpperCase();
+      return t == 'CE' || t.contains('CONTINUING');
+    }
+
+    bool isCompleted(Map<String, dynamic> item) {
+      final progressRaw = item['progress_percent'] ??
+          item['progressPercent'] ??
+          item['progress'] ??
+          item['percent_complete'] ??
+          0;
+      var progress = _num(progressRaw).toDouble();
+      if (progress > 1) progress = progress / 100.0;
+      return item['is_completed'] == true ||
+          item['isCompleted'] == true ||
+          item['completed'] == true ||
+          progress >= 1.0;
+    }
+
+    // Primary: sum completed CE entries from completions map/list.
+    final ceCompletions = <Map<String, dynamic>>[];
+    final completionsRaw = _dashboard?['completions'];
+    if (completionsRaw is Map) {
+      ceCompletions.addAll(
+        _mapListFrom(completionsRaw['CE'] ?? completionsRaw['ce']),
+      );
+      // Some APIs keep mixed entries under "all".
+      ceCompletions.addAll(
+        _mapListFrom(completionsRaw['all']).where(isCe),
+      );
+    } else if (completionsRaw is List) {
+      ceCompletions.addAll(
+        _mapListFrom(completionsRaw).where(isCe),
+      );
+    }
+
+    double hours = 0;
+    for (final c in ceCompletions) {
+      final h = c['credit_hours'] ??
+          c['creditHours'] ??
+          c['hours'] ??
+          c['duration_hours'] ??
+          c['durationHours'];
+      hours += _num(h).toDouble();
+    }
+    if (hours > 0) {
+      return hours % 1 == 0 ? '${hours.toInt()}h' : '${hours.toStringAsFixed(1)}h';
+    }
+
+    // Fallback 1: CE hours already computed by backend in stats.
+    final stats = Map<String, dynamic>.from(_dashboard?['stats'] as Map? ?? {});
+    final ceStatRaw = stats['ce_hours'] ??
+        stats['ceHours'] ??
+        stats['ce_hours_completed'] ??
+        stats['ceHoursCompleted'];
+    final ceStat = _num(ceStatRaw).toDouble();
+    if (ceStat > 0) {
+      return ceStat % 1 == 0 ? '${ceStat.toInt()}h' : '${ceStat.toStringAsFixed(1)}h';
+    }
+
+    // Fallback 2: derive from available completed CE courses.
+    for (final c in _availableCourses) {
+      if (!isCe(c) || !isCompleted(c)) continue;
+      final h = c['credit_hours'] ??
+          c['creditHours'] ??
+          c['hours'] ??
+          c['duration_hours'] ??
+          c['durationHours'];
+      hours += _num(h).toDouble();
+    }
+    if (hours > 0) {
+      return hours % 1 == 0 ? '${hours.toInt()}h' : '${hours.toStringAsFixed(1)}h';
+    }
+
+    return '0h';
+  }
+
+  List<Map<String, dynamic>> get _myLearningItems => _firstListFromKeys([
+        'in_progress',
+        'inProgress',
+        'my_learning',
+        'myLearning',
+        'courses_in_progress',
+      ]);
+
+  List<Map<String, dynamic>> get _nextUpItems =>
+      _firstListFromKeys(['next_up', 'nextUp']);
+
+  List<Map<String, dynamic>> get _deadlineItems => _firstListFromKeys([
+        'deadlines',
+        'upcoming_deadlines',
+        'upcomingDeadlines',
+      ]);
+
+  List<Map<String, dynamic>> get _achievementItems =>
+      _firstListFromKeys(['achievements']);
+
+  List<Map<String, dynamic>> get _recommendedItems => _firstListFromKeys([
+        'recommended',
+        'recommended_for_you',
+        'recommendedForYou',
+      ]);
+
+  List<Map<String, dynamic>> get _inProgressCoursesForDashboard {
+    final fromDashboard = _myLearningItems;
+    if (fromDashboard.isNotEmpty) return fromDashboard;
+    return _availableCourses.where((c) {
+      final progressRaw = c['progress_percent'] ??
+          c['progressPercent'] ??
+          c['progress'] ??
+          c['percent_complete'];
+      var progress = _num(progressRaw).toDouble();
+      if (progress > 1) progress = progress / 100.0;
+      final done = (c['is_completed'] == true) ||
+          (c['isCompleted'] == true) ||
+          (c['completed'] == true) ||
+          progress >= 1.0;
+      return !done && progress > 0;
+    }).toList();
+  }
+
+  String _courseIdFrom(Map<String, dynamic> course) {
+    return (course['id'] ??
+            course['_id'] ??
+            course['course_id'] ??
+            course['courseId'] ??
+            course['nmls_course_id'] ??
+            course['nmlsCourseId'] ??
+            '')
+        .toString();
+  }
+
+  double _courseProgress01(Map<String, dynamic> course) {
+    final raw = course['progress_percent'] ??
+        course['progressPercent'] ??
+        course['progress'] ??
+        course['completion_percent'] ??
+        course['percent_complete'] ??
+        0;
+    var value = _num(raw).toDouble();
+    if (value > 1) value = value / 100.0;
+    return value.clamp(0.0, 1.0);
+  }
+
+  String _nextLessonLabelFrom(Map<String, dynamic> item) {
+    final direct = (item['next_lesson'] ??
+            item['next_lesson_title'] ??
+            item['nextLesson'] ??
+            item['nextLessonTitle'] ??
+            item['current_lesson'] ??
+            item['currentLesson'] ??
+            item['current_lesson_title'] ??
+            item['currentLessonTitle'] ??
+            item['lesson_name'] ??
+            item['lessonName'] ??
+            item['lesson'] ??
+            item['last_lesson'] ??
+            item['lastLesson'])
+        ?.toString()
+        .trim();
+    if (direct != null && direct.isNotEmpty) return direct;
+
+    final currentModule = item['current_module'] ?? item['currentModule'];
+    if (currentModule is Map) {
+      final moduleMap = Map<String, dynamic>.from(currentModule);
+      final moduleTitle = (moduleMap['title'] ??
+              moduleMap['name'] ??
+              moduleMap['module_title'] ??
+              moduleMap['moduleTitle'])
+          ?.toString()
+          .trim();
+      if (moduleTitle != null && moduleTitle.isNotEmpty) return moduleTitle;
+    }
+
+    final modules = _mapListFrom(item['modules']);
+    if (modules.isNotEmpty) {
+      int moduleNum(Map<String, dynamic> m) {
+        return _num(m['order'] ?? m['module_order'] ?? m['idx']).toInt();
+      }
+
+      String moduleTitle(Map<String, dynamic> m) {
+        return (m['title'] ?? m['name'] ?? m['module_title'] ?? m['moduleTitle'] ?? '')
+            .toString()
+            .trim();
+      }
+
+      final moduleOrder = _num(item['module_order'] ?? item['moduleOrder']).toInt();
+      if (moduleOrder > 0) {
+        for (final m in modules) {
+          if (moduleNum(m) == moduleOrder) {
+            final t = moduleTitle(m);
+            if (t.isNotEmpty) return t;
+          }
+        }
+      }
+
+      final currentIdx = _num(item['current_idx'] ?? item['currentIdx']).toInt();
+      if (currentIdx >= 0 && currentIdx < modules.length) {
+        final t = moduleTitle(modules[currentIdx]);
+        if (t.isNotEmpty) return t;
+      }
+
+      final progress = _courseProgress01(item);
+      final inferred = (progress * modules.length).floor().clamp(0, modules.length - 1);
+      final inferredTitle = moduleTitle(modules[inferred]);
+      if (inferredTitle.isNotEmpty) return inferredTitle;
+    }
+
+    final currentIdxRaw = item['current_idx'] ?? item['currentIdx'];
+    final moduleOrderRaw = item['module_order'] ?? item['moduleOrder'];
+    final totalStepsRaw = item['total_steps'] ?? item['totalSteps'];
+
+    final currentIdx = _num(currentIdxRaw).toInt();
+    final moduleOrder = _num(moduleOrderRaw).toInt();
+    final totalSteps = _num(totalStepsRaw).toInt();
+
+    // Preferred fallback: module order if backend exposes it.
+    if (moduleOrder > 0) return 'Module $moduleOrder';
+
+    // Next fallback: infer step number from current index.
+    if (currentIdx > 0) return 'Lesson ${currentIdx + 1}';
+
+    // Last fallback: infer from progress and total steps.
+    final progress = _courseProgress01(item);
+    if (totalSteps > 0) {
+      final inferred = ((progress * totalSteps).floor() + 1).clamp(1, totalSteps);
+      return 'Lesson $inferred';
+    }
+
+    return 'Continue current lesson';
+  }
+
+  Future<void> _openCourseFromDashboard(Map<String, dynamic> course) async {
+    final courseId = _courseIdFrom(course);
+    if (courseId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Course id missing; cannot open course.')),
+      );
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => CoursePortalScreen(courseId: courseId)),
+    );
+    if (!mounted) return;
+    await _fetchDashboard();
+  }
+
+  Map<String, dynamic> _normalizeDashboardPayload(Map<String, dynamic> raw) {
+    final nested = raw['data'];
+    if (nested is Map) {
+      return Map<String, dynamic>.from(nested);
+    }
+    return raw;
+  }
+
+  bool _hasDashboardData(Map<String, dynamic> data) {
+    const keys = <String>{
+      'profile',
+      'stats',
+      'completions',
+      'available_courses',
+      'availableCourses',
+      'in_progress',
+      'my_learning',
+      'orders',
+    };
+    for (final key in keys) {
+      if (data.containsKey(key)) return true;
+    }
+    return false;
+  }
+
   // ── Lifecycle ─────────────────────────────────────────────────────
   @override
   void initState() {
@@ -256,16 +624,38 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _fetchDashboard() async {
     setState(() { _loading = true; _error = ''; });
     try {
-      final res = await http
-          .get(Uri.parse('$_apiBase/data'), headers: _headers)
+      final headers = await _requestHeaders();
+      final resDashboard = await http
+          .get(Uri.parse('$_apiBase/dashboard'), headers: headers)
           .timeout(const Duration(seconds: 10));
-      if (res.statusCode == 200) {
-        setState(() => _dashboard = Map<String, dynamic>.from(jsonDecode(res.body) as Map));
+      if (resDashboard.statusCode == 200) {
+        final parsed = _normalizeDashboardPayload(
+          Map<String, dynamic>.from(jsonDecode(resDashboard.body) as Map),
+        );
+        if (_hasDashboardData(parsed) || _dashboard == null) {
+          setState(() => _dashboard = parsed);
+        }
       } else {
-        setState(() => _error = 'Failed to load (${res.statusCode})');
+        final resData = await http
+            .get(Uri.parse('$_apiBase/data'), headers: headers)
+            .timeout(const Duration(seconds: 10));
+        if (resData.statusCode == 200) {
+          final parsed = _normalizeDashboardPayload(
+            Map<String, dynamic>.from(jsonDecode(resData.body) as Map),
+          );
+          if (_hasDashboardData(parsed) || _dashboard == null) {
+            setState(() => _dashboard = parsed);
+          }
+        } else {
+          if (_dashboard == null) {
+            setState(() => _error = 'Failed to load (${resData.statusCode})');
+          }
+        }
       }
     } catch (e) {
-      setState(() => _error = 'Network error: $e');
+      if (_dashboard == null) {
+        setState(() => _error = 'Network error: $e');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -374,11 +764,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              _StatCard(label: 'In Progress', value: '3'),
+              _StatCard(label: 'In Progress', value: '$_inProgressCount'),
               const SizedBox(width: 10),
-              _StatCard(label: 'Completed', value: '12'),
+              _StatCard(label: 'Completed', value: '$_completedCount'),
               const SizedBox(width: 10),
-              _StatCard(label: 'CE Hours', value: '20h'),
+              _StatCard(label: 'CE Hours', value: _ceHoursLabel),
             ],
           ),
         ),
@@ -393,34 +783,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     child: SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       child: Column(children: [
-        if (_error.isNotEmpty)
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0x1AC0392B),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0x38C0392B)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.wifi_off_rounded, color: Color(0xFFC0392B), size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Could not refresh dashboard data. Showing available UI.',
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      color: Color(0xFFC0392B),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         // MY LEARNING HEADER (left-aligned)
         Container(
           alignment: Alignment.centerLeft,
@@ -468,27 +830,35 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // 2. MY LEARNING SECTION: Courses in progress with % completion bar and Resume button
   Widget _buildMyLearningSection() {
-    // Use mock data for in-progress courses
-    final inProgressCourses = [
-      {
-        'title': 'Real Estate Principles',
-        'progress_percent': 0.72,
-        'last_lesson': 'Ch. 8 — Contracts',
-      },
-      {
-        'title': 'Mortgage Brokerage',
-        'progress_percent': 0.38,
-        'last_lesson': 'Ch. 3 — FHA Loans',
-      },
-    ];
+    final inProgressCourses = _inProgressCoursesForDashboard;
+    if (inProgressCourses.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: kWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kBorder),
+        ),
+        child: Text(
+          'No courses in progress yet.',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 13,
+            color: kMuted,
+          ),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ...inProgressCourses.map((course) {
-          final title = course['title'] as String? ?? 'Untitled';
-          final progress = ((course['progress_percent'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
-          final progressPct = (progress * 100).round();
-          final lastLesson = course['last_lesson'] as String? ?? '';
+          final title = (course['title'] ?? course['course_title'] ?? 'Untitled').toString();
+          final normalized = _courseProgress01(course);
+          final progressPct = (normalized * 100).round();
+          final lastLesson = (course['last_lesson'] ?? course['lastLesson'] ?? '').toString();
+          final isStart = normalized <= 0.001;
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             padding: const EdgeInsets.all(16),
@@ -509,7 +879,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(99),
                         child: LinearProgressIndicator(
-                          value: progress,
+                          value: normalized,
                           minHeight: 8,
                           backgroundColor: kBlueFaint,
                           valueColor: AlwaysStoppedAnimation<Color>(kBlue),
@@ -533,8 +903,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                         textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
                       ),
-                      onPressed: () {},
-                      child: Text('Resume'),
+                      onPressed: () => _openCourseFromDashboard(course),
+                      child: Text(isStart ? 'Start' : 'Resume'),
                     ),
                   ],
                 ),
@@ -548,9 +918,21 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // NEXT UP SECTION: Use mock data
   Widget _buildNextUpSection() {
-    final nextLesson = 'Ch. 9 — Property Law';
-    final courseTitle = 'Real Estate Principles';
-    final duration = '22 min · Video';
+    final fallbackInProgress = _inProgressCoursesForDashboard.isNotEmpty
+        ? _inProgressCoursesForDashboard.first
+        : const <String, dynamic>{};
+    final item = _nextUpItems.isNotEmpty ? _nextUpItems.first : fallbackInProgress;
+    final courseTitle = (item['course_title'] ??
+            item['courseTitle'] ??
+            item['course_name'] ??
+            item['courseName'] ??
+            item['course'] ??
+            item['title'] ??
+            'Up next')
+        .toString();
+    final nextLesson = _nextLessonLabelFrom(item);
+    final duration = (item['duration'] ?? item['meta'] ?? '').toString();
+    final isStart = _courseProgress01(item) <= 0.001;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(16),
@@ -569,7 +951,10 @@ class _DashboardScreenState extends State<DashboardScreen>
               children: [
                 Text(courseTitle, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 13, color: kWhite)),
                 Text(nextLesson, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 15, color: kWhite)),
-                Text(duration, style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kWhite.withValues(alpha: 0.7))),
+                Text(
+                  duration.isEmpty ? 'No duration' : duration,
+                  style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kWhite.withValues(alpha: 0.7)),
+                ),
               ],
             ),
           ),
@@ -581,8 +966,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
             ),
-            onPressed: () {},
-            child: Text('Start'),
+            onPressed: item.isEmpty ? null : () => _openCourseFromDashboard(item),
+            child: Text(isStart ? 'Start' : 'Resume'),
           ),
         ],
       ),
@@ -591,6 +976,48 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // DEADLINES SECTION
   Widget _buildDeadlinesSection() {
+    final deadlines = _deadlineItems;
+    if (deadlines.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: kWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: kBorder),
+        ),
+        child: Text(
+          'No upcoming deadlines.',
+          style: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: kMuted),
+        ),
+      );
+    }
+    final first = deadlines.first;
+    final second = deadlines.length > 1 ? deadlines[1] : null;
+    Widget rowFrom(Map<String, dynamic> d, {required Color dotColor, required Color dateColor}) {
+      final title = (d['title'] ?? d['name'] ?? 'Deadline').toString();
+      final subtitle = (d['subtitle'] ?? d['remaining'] ?? '').toString();
+      final date = (d['date'] ?? d['due_date'] ?? '').toString();
+      return Row(
+        children: [
+          Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: kDark)),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMuted)),
+                ],
+              ],
+            ),
+          ),
+          Text(date, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: dateColor)),
+        ],
+      );
+    }
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(20),
@@ -603,44 +1030,14 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFFFF6B6B))),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('CA License Renewal', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: kDark)),
-                    const SizedBox(height: 2),
-                    Text('28 days remaining', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMuted)),
-                  ],
-                ),
-              ),
-              Text('Jun 18', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFFFF6B6B))),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1, color: kBorder, thickness: 1),
-          ),
-          Row(
-            children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: kBlue)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('CE Hours Due', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: kDark)),
-                    const SizedBox(height: 2),
-                    Text('4 hrs remaining', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMuted)),
-                  ],
-                ),
-              ),
-              Text('Jul 1', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: kBlue)),
-            ],
-          ),
+          rowFrom(first, dotColor: const Color(0xFFFF6B6B), dateColor: const Color(0xFFFF6B6B)),
+          if (second != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Divider(height: 1, color: kBorder, thickness: 1),
+            ),
+            rowFrom(second, dotColor: kBlue, dateColor: kBlue),
+          ],
         ],
       ),
     );
@@ -648,108 +1045,200 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // ACHIEVEMENTS SECTION
   Widget _buildAchievementsSection() {
-    final achievements = [
-      {'icon': '🏆', 'label': 'Top Scorer', 'locked': false},
-      {'icon': '🔥', 'label': '7-Day Streak', 'locked': false},
-      {'icon': '📜', 'label': '3 Certs', 'locked': false},
-      {'icon': '🌟', 'label': 'Locked', 'locked': true},
-    ];
-    return SizedBox(
-      height: 104,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        scrollDirection: Axis.horizontal,
-        itemCount: achievements.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final a = achievements[index];
-          final bool locked = a['locked'] as bool;
-          return Container(
-            width: 100,
-            decoration: BoxDecoration(
-              color: locked ? kBlue.withValues(alpha: 0.05) : kWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: locked ? Border.all(color: kBlue.withValues(alpha: 0.15), width: 1.5, strokeAlign: BorderSide.strokeAlignInside) : null,
-              boxShadow: locked ? null : [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
+    final achievements = _achievementItems.isNotEmpty
+        ? _achievementItems
+        : [
+            {'icon': '🏆', 'label': 'Top Scorer', 'locked': false},
+            {'icon': '🔥', 'label': '7-Day Streak', 'locked': false},
+            {'icon': '📜', 'label': '3 Certs', 'locked': false},
+            {'icon': '🌟', 'label': 'Locked', 'locked': true},
+          ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth > 0
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
+        final crossAxisCount = available >= 920
+            ? 5
+            : available >= 700
+                ? 4
+                : 3;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: achievements.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.12,
             ),
-            child: Opacity(
-              opacity: locked ? 0.4 : 1.0,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(a['icon'] as String, style: const TextStyle(fontSize: 28)),
-                  const SizedBox(height: 8),
-                  Text(a['label'] as String,
-                    style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 12, color: kDark)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+            itemBuilder: (context, index) {
+              final a = achievements[index];
+              final bool locked = a['locked'] == true;
+              return Container(
+                decoration: BoxDecoration(
+                  color: locked ? kBlue.withValues(alpha: 0.05) : kWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: locked
+                      ? Border.all(
+                          color: kBlue.withValues(alpha: 0.15),
+                          width: 1.5,
+                          strokeAlign: BorderSide.strokeAlignInside,
+                        )
+                      : null,
+                  boxShadow: locked
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                ),
+                child: Opacity(
+                  opacity: locked ? 0.4 : 1.0,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        (a['icon'] ?? '🏅').toString(),
+                        style: const TextStyle(fontSize: 22),
+                      ),
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          (a['label'] ?? 'Achievement').toString(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            color: kDark,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
   // ── Recommended For You Section ──────────────────────────────────────
   Widget _buildRecommendedForYouSection() {
-    final recommended = [
-      {'title': 'CE: Agency Law', 'state': 'CA', 'hours': 3, 'icon': Icons.menu_book},
-      {'title': 'Fair Housing Act', 'state': 'CA', 'hours': 2, 'icon': Icons.article_outlined},
-      {'title': 'Ethical Practices', 'state': 'TX', 'hours': 4, 'icon': Icons.gavel},
-    ];
-    return SizedBox(
-      height: 166,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: recommended.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (context, index) {
-          final c = recommended[index];
-          return Container(
-            width: 156,
-            decoration: BoxDecoration(
-              color: kWhite,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
+    final recommended = _recommendedItems.isNotEmpty
+        ? _recommendedItems
+        : [
+            {'title': 'CE: Agency Law', 'state': 'CA', 'hours': 3, 'icon': Icons.menu_book},
+            {'title': 'Fair Housing Act', 'state': 'CA', 'hours': 2, 'icon': Icons.article_outlined},
+            {'title': 'Ethical Practices', 'state': 'TX', 'hours': 4, 'icon': Icons.gavel},
+          ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.maxWidth > 0
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
+        final crossAxisCount = available >= 1050
+            ? 5
+            : available >= 760
+                ? 4
+                : 3;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: recommended.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.02,
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 94,
-                  color: kDark,
-                  alignment: Alignment.center,
-                  child: Icon(c['icon'] as IconData, color: kBlue, size: 38),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(c['title'] as String,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 13, color: kDark)),
-                        const SizedBox(height: 4),
-                        Text('${c['hours']} CE hrs · ${c['state']}',
-                          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 11, color: kMuted)),
-                      ],
+            itemBuilder: (context, index) {
+              final c = recommended[index];
+              return Container(
+                decoration: BoxDecoration(
+                  color: kWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 6,
+                      child: Container(
+                        width: double.infinity,
+                        color: kDark,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          (c['icon'] as IconData?) ?? Icons.menu_book,
+                          color: kBlue,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 5,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              (c['title'] ?? 'Recommended').toString(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                color: kDark,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${c['hours'] ?? 0} CE hrs · ${c['state'] ?? ''}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w500,
+                                fontSize: 10,
+                                color: kMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
