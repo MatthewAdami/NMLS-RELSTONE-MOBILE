@@ -7,6 +7,7 @@ import 'config/api_config.dart';
 import 'services/auth_service.dart';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── Theme Constants (kept consistent with the app ────────────────────────
 const kDark = Color(0xFF091925);
@@ -52,6 +53,42 @@ class _OrdersScreenState extends State<OrdersScreen>
   ];
 
   late List<Map<String, dynamic>> _cards;
+  static const String _prefsCardsKey = 'saved_payment_cards';
+
+  Future<void> _loadCardsFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_prefsCardsKey);
+
+    // If nothing stored yet, persist current mock cards so other screens can show them.
+    if (raw == null || raw.trim().isEmpty) {
+      await _persistCardsToPrefs(prefs: prefs);
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+
+      final loaded = decoded
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+      if (loaded.isEmpty) return;
+      _cards = loaded;
+
+      final hasDefault = _cards.any((c) => c['isDefault'] == true);
+      if (!hasDefault && _cards.isNotEmpty) {
+        _cards[0]['isDefault'] = true;
+      }
+    } catch (_) {
+      // Ignore corrupted prefs; fall back to current _cards (mock or already-initialized).
+    }
+  }
+
+  Future<void> _persistCardsToPrefs({required SharedPreferences prefs}) async {
+    await prefs.setString(_prefsCardsKey, jsonEncode(_cards));
+  }
 
   @override
   void initState() {
@@ -76,6 +113,8 @@ class _OrdersScreenState extends State<OrdersScreen>
     try {
       final token = widget.token ?? await AuthService.getToken();
       _token = token;
+
+      await _loadCardsFromPrefs();
 
       // Web spec: on mount call API.get('/orders/my')
       await _fetchOrders();
@@ -900,6 +939,9 @@ class _OrdersScreenState extends State<OrdersScreen>
       }
       _cards = [..._cards, result];
     });
+
+    final prefs = await SharedPreferences.getInstance();
+    await _persistCardsToPrefs(prefs: prefs);
   }
 
   String _inferBrand(String digits) {
@@ -919,6 +961,9 @@ class _OrdersScreenState extends State<OrdersScreen>
         c['isDefault'] = c['last4']?.toString() == last4;
       }
     });
+
+    final prefs = SharedPreferences.getInstance();
+    prefs.then((p) => _persistCardsToPrefs(prefs: p));
   }
 
   void _removeCard(Map<String, dynamic> card) async {
@@ -945,6 +990,9 @@ class _OrdersScreenState extends State<OrdersScreen>
       final hasDefault = _cards.any((c) => c['isDefault'] == true);
       if (!hasDefault) _cards[0]['isDefault'] = true;
     });
+
+    final prefs = await SharedPreferences.getInstance();
+    await _persistCardsToPrefs(prefs: prefs);
   }
 
   String htmlEscape(String s) =>
