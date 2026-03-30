@@ -1,65 +1,84 @@
 class ApiConfig {
-  // ✅ Choose ONE depending on how you run your app:
+  // ── Android Emulator (local testing) ────────────────────────────────────
+  static const String baseUrl = 'http://10.0.2.2:8000';
 
-    // Web browser (Edge, Chrome, etc.)
-    // Override when needed: flutter run -d edge --dart-define=API_BASE_URL=http://localhost:5000
-    static const String baseUrl = String.fromEnvironment(
-        'API_BASE_URL',
-        defaultValue: 'http://localhost:5000',
-    );
+  // ── Production (Heroku) ──────────────────────────────────────────────────
+  // static const String baseUrl = 'https://relstone-nmls-62fc9b1f5f80.herokuapp.com';
 
-  // Android Emulator:
-  // static const String baseUrl = "http://10.0.2.2:3000";
+  // ── Real Device (same WiFi) ──────────────────────────────────────────────
+  // static const String baseUrl = 'http://192.168.100.3:8000';
 
-  // iOS Simulator:
-  // static const String baseUrl = "http://localhost:5000";
+  // ── iOS Simulator / Web ──────────────────────────────────────────────────
+  // static const String baseUrl = 'http://localhost:8000';
 
-  // Real device (phone) -> use your PC IP (same WiFi)
-  // static const String baseUrl = "http://192.168.100.3:5000";
+  static const String apiPrefix = '/api';
 
-  static const String apiPrefix = "/api";
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  static String get login          => '$baseUrl$apiPrefix/auth/login';
+  static String get register       => '$baseUrl$apiPrefix/auth/register';
+  static String get forgotPassword => '$baseUrl$apiPrefix/auth/forgot-password';
+  static String get resetPassword  => '$baseUrl$apiPrefix/auth/reset-password';
+  static String get resendCode     => '$baseUrl$apiPrefix/auth/resend-code';
+  static String get profile        => '$baseUrl$apiPrefix/auth/profile';
 
-  // Auth
-  static String get login => "$baseUrl$apiPrefix/auth/login";
-  static String get loginLocalFallback => "http://127.0.0.1:5000$apiPrefix/auth/login";
-  static List<String> get loginCandidates {
-    final hostBased = 'http://${Uri.base.host}:5000$apiPrefix/auth/login';
-    final endpoints = <String>[
-      login,
-      hostBased,
-      loginLocalFallback,
-      'http://localhost:5000$apiPrefix/auth/login',
-    ];
-    return endpoints.toSet().toList();
-  }
-  static String get register => "$baseUrl$apiPrefix/auth/register";
-  static String get forgotPassword => "$baseUrl$apiPrefix/auth/forgot-password";
-  static String get resetPassword => "$baseUrl$apiPrefix/auth/reset-password";
-  static String get resendCode => "$baseUrl$apiPrefix/auth/resend-code";
+  // ── Courses ──────────────────────────────────────────────────────────────
+  static String get courses        => '$baseUrl$apiPrefix/courses';
+  static String courseDetail(String id) => '$baseUrl$apiPrefix/courses/$id';
 
-  // States
-  static String get stateRequirements => "$baseUrl$apiPrefix/states/requirements";
-  static String stateRequirementDetail(String stateCode) =>
-      "$baseUrl$apiPrefix/states/requirements/$stateCode";
+  // ── Orders ───────────────────────────────────────────────────────────────
+  static String get orders         => '$baseUrl$apiPrefix/orders';
 
-  // Resources
-  static String get resources => "$baseUrl$apiPrefix/resources";
+  // ── Dashboard ────────────────────────────────────────────────────────────
+  static String get dashboard      => '$baseUrl$apiPrefix/dashboard';
+
+  // ── Certificates ─────────────────────────────────────────────────────────
+  static String get certificates   => '$baseUrl$apiPrefix/certificates';
+
+  // ── Instructor ───────────────────────────────────────────────────────────
+  static String get instructor     => '$baseUrl$apiPrefix/instructor';
+
+  // ── Enrollment ───────────────────────────────────────────────────────────
+  static String get enrollment     => '$baseUrl$apiPrefix/enrollment';
+
+  // ── Quiz Attempts ────────────────────────────────────────────────────────
+  static String get quizAttempts   => '$baseUrl$apiPrefix/quiz-attempts';
+
+  // ── ROCS ─────────────────────────────────────────────────────────────────
+  static String get rocs           => '$baseUrl$apiPrefix/rocs';
+
+  // ── Support ──────────────────────────────────────────────────────────────
+  static String get support        => '$baseUrl$apiPrefix/support';
+  static String get contactSupport => '$baseUrl$apiPrefix/support/contact';
+  static String get supportMine    => '$baseUrl$apiPrefix/support/mine';
+  static String supportDetail(String id)  => '$baseUrl$apiPrefix/support/$id';
+  static String supportReply(String id)   => '$baseUrl$apiPrefix/support/$id/reply';
+
+  // ── Testimonials ─────────────────────────────────────────────────────────
+  static String get testimonials   => '$baseUrl$apiPrefix/testimonials';
+
+  // ── Biosig ───────────────────────────────────────────────────────────────
+  static String get biosig         => '$baseUrl$apiPrefix/biosig';
+
+  // ── Resources (Blog) ─────────────────────────────────────────────────────
+  static String get resources      => '$baseUrl$apiPrefix/resources';
   static String resourceDetail(String articleId) =>
-      "$baseUrl$apiPrefix/resources/$articleId";
+      '$baseUrl$apiPrefix/resources/$articleId';
   static String get newsletterSubscribe =>
-      "$baseUrl$apiPrefix/resources/newsletter-subscribe";
+      '$baseUrl$apiPrefix/resources/newsletter-subscribe';
 
-  // Exam prep
-  static String get examPrepQuestions => "$baseUrl$apiPrefix/exam-prep/questions";
-  static String get examPrepAnalytics => "$baseUrl$apiPrefix/exam-prep/analytics";
-  static String get examPrepAttempt => "$baseUrl$apiPrefix/exam-prep/attempt";
+  // ── States ───────────────────────────────────────────────────────────────
+  static String get stateRequirements => '$baseUrl$apiPrefix/states/requirements';
+  static String stateRequirementDetail(String stateCode) =>
+      '$baseUrl$apiPrefix/states/requirements/$stateCode';
 
-  // Notifications
-  static String get notifications => "$baseUrl$apiPrefix/notifications";
+  // ── Exam Prep ────────────────────────────────────────────────────────────
+  static String get examPrepQuestions => '$baseUrl$apiPrefix/exam-prep/questions';
+  static String get examPrepAnalytics => '$baseUrl$apiPrefix/exam-prep/analytics';
+  static String get examPrepAttempt   => '$baseUrl$apiPrefix/exam-prep/attempt';
 
-  // Support
-  static String get contactSupport => "$baseUrl$apiPrefix/support/contact";
+  // ── Notifications ────────────────────────────────────────────────────────
+  static String get notifications     => '$baseUrl$apiPrefix/notifications';
 
-  // Health
-  static String get health => "$baseUrl$apiPrefix/health";
+  // ── Health ───────────────────────────────────────────────────────────────
+  static String get health            => '$baseUrl$apiPrefix/health';
 }

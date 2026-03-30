@@ -1,12 +1,10 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
-import 'api_client.dart';
+import '../services/api_client.dart';
 
 class AuthService {
-  /// LOGIN: matches backend POST /api/auth/login
-  /// Backend expects: { email, password }
-  /// Backend returns 200: { token, user: { id, name, email, nmls_id, state, role } }
-  /// Backend returns 400: { message: 'Invalid credentials' }
+  /// LOGIN: POST /api/auth/login
   static Future<Map<String, dynamic>> login(String email, String password) async {
     final result = await ApiClient.post(
       ApiConfig.login,
@@ -24,32 +22,26 @@ class AuthService {
       final user = data['user'];
 
       final prefs = await SharedPreferences.getInstance();
+      // ✅ Save token as string, user as JSON string (not .toString())
       if (token != null) await prefs.setString('token', token.toString());
-      if (user != null) await prefs.setString('user', user.toString());
+      if (user != null) await prefs.setString('user', jsonEncode(user));
 
       return {'success': true, 'user': user};
     }
 
-    // status 400 or 500
     return {
       'success': false,
       'message': data['message'] ?? 'Login failed',
     };
   }
 
-  /// REGISTER: matches backend POST /api/auth/register
-  /// Backend expects: { name, email, password, nmls_id?, state? }
-  /// Backend returns 201: { token, user: { id, name, email, nmls_id, state, role } }
-  /// Backend returns 400: { message: 'Email already registered' }
-  ///
-  /// NOTE: Web uses { email, password } only on login — register takes full name.
-  /// Flutter register mirrors the same backend fields.
+  /// REGISTER: POST /api/auth/register
   static Future<Map<String, dynamic>> register({
-    required String name,      // Single 'name' field — matches User model
+    required String name,
     required String email,
     required String password,
-    String? nmlsId,            // Optional nmls_id
-    String? state,             // Optional state
+    String? nmlsId,
+    String? state,
   }) async {
     final result = await ApiClient.post(
       ApiConfig.register,
@@ -66,25 +58,24 @@ class AuthService {
     final Map<String, dynamic> data = result['data'] as Map<String, dynamic>;
 
     if (status == 201) {
-      // Backend returns token + user immediately on register (no email verification)
       final token = data['token'];
       final user = data['user'];
 
       final prefs = await SharedPreferences.getInstance();
+      // ✅ Save token as string, user as JSON string
       if (token != null) await prefs.setString('token', token.toString());
-      if (user != null) await prefs.setString('user', user.toString());
+      if (user != null) await prefs.setString('user', jsonEncode(user));
 
       return {'success': true, 'user': user};
     }
 
-    // status 400 (email already registered) or 500
     return {
       'success': false,
       'message': data['message'] ?? 'Registration failed',
     };
   }
 
-  /// LOGOUT: clears stored token and user
+  /// LOGOUT
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
@@ -95,6 +86,18 @@ class AuthService {
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
+  }
+
+  /// Get stored user as Map
+  static Future<Map<String, dynamic>?> getUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    if (userStr == null) return null;
+    try {
+      return jsonDecode(userStr) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Check if user is currently logged in

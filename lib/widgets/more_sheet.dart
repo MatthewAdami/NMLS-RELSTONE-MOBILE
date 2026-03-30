@@ -129,10 +129,13 @@ class MoreSheet extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => MyCertificatesScreen(
-                    userName: userName,
-                    userEmail: userEmail,
-                  ),
+                 builder: (_) => MyCertificatesScreen(
+  user: {
+    'name':  userName,
+    'email': userEmail,
+    'state': state,
+  },
+),
                 ),
               );
             },

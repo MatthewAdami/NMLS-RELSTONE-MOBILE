@@ -1,96 +1,77 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:nmls_mobile/config/api_config.dart';
-import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
+import 'package:nmls_mobile/widgets/app_side_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'config/api_config.dart';
+import 'my_courses_screen.dart';
+import 'cart_screen.dart';
+import 'orders_screen.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
-const kDark        = Color(0xFF091925);
-const kBlue        = Color(0xFF2EABFE);
-const kBlueFaint   = Color(0x1A2EABFE);
-const kBlueBorder  = Color(0x382EABFE);
-const kTeal        = Color(0xFF00B4B4);
-const kBg          = Color(0xFFF6F7FB);
-const kWhite       = Colors.white;
-const kMuted       = Color(0x990B1220);
-const kBorder      = Color(0x1A020817);
-const kSurface     = Color(0xD0FFFFFF);
+const _cDark       = Color(0xFF091925);
+const _cBlue       = Color(0xFF2EABFE);
+const _cBlueFaint  = Color(0x1A2EABFE);
+const _cBlueBorder = Color(0x382EABFE);
+const _cTeal       = Color(0xFF00B4B4);
+const _cTealFaint  = Color(0x1A00B4B4);
+const _cTealBorder = Color(0x3300B4B4);
+const _cAmber      = Color(0xFFF59E0B);
+const _cBg         = Color(0xFFF6F7FB);
+const _cWhite      = Colors.white;
+const _cMuted      = Color(0xFF7FA8C4);
+const _cBorder     = Color(0x14020817);
 
 class CoursesScreen extends StatefulWidget {
   final String? token;
   final String userName;
   final String userEmail;
-  const CoursesScreen({Key? key, this.token, this.userName = 'User', this.userEmail = 'user@example.com'}) : super(key: key);
+  final String? nmlsId;
+
+  const CoursesScreen({
+    Key? key,
+    this.token,
+    this.userName = '',
+    this.userEmail = '',
+    this.nmlsId,
+  }) : super(key: key);
 
   @override
-  _CoursesScreenState createState() => _CoursesScreenState();
+  State<CoursesScreen> createState() => _CoursesScreenState();
 }
 
 class _CoursesScreenState extends State<CoursesScreen> {
-  final TextEditingController _searchCtrl = TextEditingController();
-  int _tabIndex = 0; // 0 = In Progress, 1 = Completed, 2 = Wishlist
-  String _activeFilter = 'All States';
-  bool _loading = true;
-  String _error = '';
+  final _searchCtrl  = TextEditingController();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  String? _token;
+  String  _userName  = '';
+  String  _userEmail = '';
+  String  _nmlsId    = '';
+
+  bool   _loading = true;
+  String _error   = '';
   List<Map<String, dynamic>> _courses = [];
 
-  String get _apiBase => '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}';
+  // Cart
+  List<Map<String, dynamic>> _cartItems = [];
+
+  String _typeFilter  = 'All';
+  String _stateFilter = 'All';
+  String _search      = '';
+
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
-    if (widget.token != null) 'Authorization': 'Bearer ${widget.token}',
+    if (_token != null) 'Authorization': 'Bearer $_token',
   };
 
+  // ── Lifecycle ─────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _searchCtrl.addListener(() => setState(() {}));
-    _fetchCourses();
-  }
-
-  Future<void> _fetchCourses() async {
-    if (widget.token == null || widget.token!.isEmpty) {
-      setState(() {
-        _loading = false;
-        _error = 'Missing session token. Please sign in again.';
-        _courses = [];
-      });
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = '';
-    });
-
-    try {
-      final res = await http
-          .get(Uri.parse('$_apiBase/courses'), headers: _headers)
-          .timeout(const Duration(seconds: 12));
-
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(res.body);
-        final list = decoded is List ? decoded : const [];
-        setState(() {
-          _courses = list
-              .whereType<Map>()
-              .map((raw) => Map<String, dynamic>.from(raw))
-              .toList();
-          _loading = false;
-        });
-      } else {
-        setState(() {
-          _loading = false;
-          _courses = [];
-          _error = 'Could not load courses (${res.statusCode}).';
-        });
-      }
-    } catch (_) {
-      setState(() {
-        _loading = false;
-        _courses = [];
-        _error = 'Could not connect to courses service.';
-      });
-    }
+    _searchCtrl.addListener(() => setState(() => _search = _searchCtrl.text));
+    _init();
   }
 
   @override
@@ -99,392 +80,662 @@ class _CoursesScreenState extends State<CoursesScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBg,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopSection(),
-            _buildTabs(),
-            _buildFilters(),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: kBlue))
-                  : _error.isNotEmpty
-                      ? _buildErrorView()
-                      : _buildCourseList(),
-            ),
-            AppBottomNav(
-              activeTab: AppNavTab.courses,
-              userName: widget.userName,
-              userEmail: widget.userEmail,
-              token: widget.token,
-            ),
-          ],
+  Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    _token = widget.token ?? prefs.getString('token');
+    final userStr = prefs.getString('user');
+    if (userStr != null) {
+      try {
+        final user = jsonDecode(userStr) as Map<String, dynamic>;
+        _userName  = widget.userName.isNotEmpty  ? widget.userName  : (user['name']     as String? ?? '');
+        _userEmail = widget.userEmail.isNotEmpty ? widget.userEmail : (user['email']    as String? ?? '');
+        _nmlsId    = widget.nmlsId               ?? (user['nmls_id'] as String? ?? '');
+      } catch (_) {}
+    }
+    await _loadCart();
+    await _fetchCourses();
+  }
+
+  Future<void> _loadCart() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('cart');
+    if (raw != null) {
+      setState(() {
+        _cartItems = List<Map<String, dynamic>>.from(
+            (jsonDecode(raw) as List).map((e) => Map<String, dynamic>.from(e as Map)));
+      });
+    }
+  }
+
+  Future<void> _saveCart() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('cart', jsonEncode(_cartItems));
+  }
+
+  Future<void> _fetchCourses() async {
+    setState(() { _loading = true; _error = ''; });
+    try {
+      final res = await http
+          .get(Uri.parse('${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/courses'), headers: _headers)
+          .timeout(const Duration(seconds: 12));
+
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final raw = decoded is List
+            ? decoded
+            : (decoded is Map && decoded['data'] is List)
+                ? decoded['data'] as List
+                : (decoded is Map && decoded['courses'] is List)
+                    ? decoded['courses'] as List
+                    : <dynamic>[];
+        setState(() {
+          _courses = raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+          _loading = false;
+        });
+      } else {
+        setState(() { _loading = false; _error = 'Could not load courses (${res.statusCode}).'; });
+      }
+    } catch (e) {
+      setState(() { _loading = false; _error = 'Network error: $e'; });
+    }
+  }
+
+  // ── Cart helpers ──────────────────────────────────────────────────
+  bool _isInCart(String? courseId) =>
+      courseId != null && _cartItems.any((item) => item['_id'] == courseId);
+
+  Future<void> _addToCart(Map<String, dynamic> course) async {
+    final courseId = course['_id'] as String?;
+    final title    = course['title'] as String? ?? 'Course';
+    if (courseId == null) return;
+
+    // Already in cart
+    if (_isInCart(courseId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(children: [
+            Icon(Icons.info_outline_rounded, color: _cWhite, size: 16),
+            SizedBox(width: 10),
+            Text('Already in your cart!',
+                style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13)),
+          ]),
+          backgroundColor: _cAmber,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+          action: SnackBarAction(
+            label: 'View Cart',
+            textColor: _cWhite,
+            onPressed: _openCart,
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Add to local cart
+    setState(() {
+      _cartItems.add({
+        '_id':              courseId,
+        'title':            course['title'],
+        'type':             course['type'],
+        'credit_hours':     course['credit_hours'],
+        'price':            course['price'],
+        'has_textbook':     course['has_textbook'] ?? false,
+        'textbook_price':   course['textbook_price'],
+        'include_textbook': false,
+      });
+    });
+    await _saveCart();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(children: [
+          const Icon(Icons.check_circle_rounded, color: _cWhite, size: 16),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text('"$title" added to cart!',
+                style: const TextStyle(
+                    fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13)),
+          ),
+        ]),
+        backgroundColor: const Color(0xFF15803D),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'View Cart',
+          textColor: _cWhite,
+          onPressed: _openCart,
         ),
       ),
     );
   }
 
-  // ─── Header & Search ───────────────────────────────────────────────
-  Widget _buildTopSection() {
-    return Container(
-      color: kDark,
-      padding: const EdgeInsets.only(top: 16, bottom: 20, left: 16, right: 16),
-      child: Column(
+  void _openCart() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => CartScreen(token: _token)),
+    ).then((_) => _loadCart());
+  }
+
+  // ── Filtered list ─────────────────────────────────────────────────
+  List<Map<String, dynamic>> get _filtered {
+    return _courses.where((c) {
+      final type   = (c['type'] as String? ?? '').toUpperCase();
+      final title  = (c['title'] as String? ?? '').toLowerCase();
+      final states = ((c['states_approved'] as List?) ?? [])
+          .map((s) => s.toString().toUpperCase())
+          .toList();
+
+      final matchType   = _typeFilter == 'All' || type == _typeFilter;
+      final matchState  = _stateFilter == 'All' || states.contains(_stateFilter);
+      final matchSearch = _search.trim().isEmpty || title.contains(_search.toLowerCase());
+
+      return matchType && matchState && matchSearch;
+    }).toList();
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: _cBg,
+      appBar: AppTopBar(
+        scaffoldKey: _scaffoldKey,
+        userName: _userName,
+        nmlsId: _nmlsId.isNotEmpty ? _nmlsId : null,
+      ),
+      drawer: AppSidebar(
+        userName: _userName,
+        userEmail: _userEmail,
+        nmlsId: _nmlsId.isNotEmpty ? _nmlsId : null,
+        currentRoute: '/courses',
+        onNavigate: (route) {
+          Navigator.of(context).pop(); // close drawer
+          if (route == '/dashboard') {
+            Navigator.of(context).pop();
+          } else if (route == '/my-courses') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const MyCoursesScreen()),
+            );
+          } else if (route == '/orders') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => OrdersScreen(token: _token)),
+            );
+          }
+        },
+        onSignOut: () =>
+            Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false),
+      ),
+      body: Column(
         children: [
-          const Text(
-            'My Courses',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontWeight: FontWeight.w700,
-              fontSize: 20,
-              color: Colors.white,
-            ),
+          _buildHeader(),
+          _buildFilterRow(),
+          Expanded(
+            child: _loading
+                ? const Center(
+                    child: CircularProgressIndicator(color: _cBlue, strokeWidth: 2.5))
+                : _error.isNotEmpty
+                    ? _buildError()
+                    : _filtered.isEmpty
+                        ? _buildEmpty()
+                        : _buildList(),
           ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF152633), // Darker blend for the search bar
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+        ],
+      ),
+    );
+  }
+
+  // ── Header with search + cart icon ────────────────────────────────
+  Widget _buildHeader() => Container(
+        color: _cDark,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                const Icon(Icons.search, color: Color(0xFF6B8397), size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'Search courses...',
-                      hintStyle: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 14,
-                        color: Color(0xFF6B8397),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('MY LEARNING',
+                          style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: _cBlue,
+                              letterSpacing: 0.8)),
+                      Text('Browse Courses',
+                          style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: _cWhite,
+                              letterSpacing: -0.3)),
+                    ],
+                  ),
+                ),
+                // Cart icon with badge
+                GestureDetector(
+                  onTap: _openCart,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: _cWhite.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _cWhite.withOpacity(0.15)),
+                        ),
+                        child: const Icon(Icons.shopping_cart_outlined,
+                            color: _cWhite, size: 20),
                       ),
-                      border: InputBorder.none,
-                    ),
+                      if (_cartItems.isNotEmpty)
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: Container(
+                            width: 18,
+                            height: 18,
+                            decoration: const BoxDecoration(
+                                color: _cBlue, shape: BoxShape.circle),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${_cartItems.length}',
+                              style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  color: _cWhite),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Tab Bar ───────────────────────────────────────────────────────
-  Widget _buildTabs() {
-    return Container(
-      color: kWhite,
-      child: Row(
-        children: [
-          _buildTabItem('In Progress', 0),
-          _buildTabItem('Completed', 1),
-          _buildTabItem('Wishlist', 2),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabItem(String label, int index) {
-    bool isActive = _tabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _tabIndex = index;
-          });
-        },
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'Poppins',
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                  fontSize: 13,
-                  color: isActive ? kBlue : const Color(0xFF7D92A3),
-                ),
-              ),
-            ),
+            const SizedBox(height: 14),
+            // Search bar
             Container(
-              height: 2,
-              color: isActive ? kBlue : Colors.transparent,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _cWhite.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _cWhite.withOpacity(0.12)),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 12),
+                  const Icon(Icons.search, color: Color(0xFF6B8397), size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchCtrl,
+                      style: const TextStyle(
+                          fontFamily: 'Poppins', fontSize: 13, color: _cWhite),
+                      decoration: const InputDecoration(
+                        hintText: 'Search courses…',
+                        hintStyle: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 13,
+                            color: Color(0xFF6B8397)),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  if (_search.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        _searchCtrl.clear();
+                        setState(() => _search = '');
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 12),
+                        child: Icon(Icons.close_rounded,
+                            color: Color(0xFF6B8397), size: 16),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
 
-  // ─── Filters ───────────────────────────────────────────────────────
-  Widget _buildFilters() {
-    final filters = ['All States', 'California', 'Texas', 'CE Only'];
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: filters.map((f) {
-            bool isActive = _activeFilter == f;
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _activeFilter = f;
-                });
-              },
-              child: Container(
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isActive ? kBlue : kWhite,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: isActive ? kBlue : kBorder.withValues(alpha: 0.1)),
-                ),
-                child: Text(
-                  f,
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                    fontSize: 12,
-                    color: isActive ? kWhite : kMuted,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  // ─── Course List ───────────────────────────────────────────────────
-  Widget _buildCourseList() {
-    final search = _searchCtrl.text.trim().toLowerCase();
-    final wantedStatus = _tabIndex == 0
-        ? 'in_progress'
-        : _tabIndex == 1
-            ? 'completed'
-            : 'wishlist';
-
-    final items = _courses.where((course) {
-      final status = (course['enrollment_status'] as String? ?? 'in_progress').toLowerCase();
-      if (status != wantedStatus) return false;
-
-      final states = ((course['states_approved'] as List?) ?? const [])
-          .map((e) => e.toString().toUpperCase())
-          .toList();
-      final type = (course['type'] as String? ?? '').toUpperCase();
-
-      if (_activeFilter == 'California' && !states.contains('CA')) return false;
-      if (_activeFilter == 'Texas' && !states.contains('TX')) return false;
-      if (_activeFilter == 'CE Only' && type != 'CE') return false;
-
-      if (search.isEmpty) return true;
-      final title = (course['title'] as String? ?? '').toLowerCase();
-      final description = (course['description'] as String? ?? '').toLowerCase();
-      return title.contains(search) || description.contains(search);
-    }).toList();
-
-    if (items.isEmpty) {
-      return const Center(
-        child: Text(
-          'No assigned courses found for this tab.',
-          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500),
+  // ── Filter chips row ──────────────────────────────────────────────
+  Widget _buildFilterRow() => Container(
+        color: _cWhite,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              _chip('All', _typeFilter == 'All', () => setState(() => _typeFilter = 'All')),
+              _chip('PE',  _typeFilter == 'PE',  () => setState(() => _typeFilter = 'PE')),
+              _chip('CE',  _typeFilter == 'CE',  () => setState(() => _typeFilter = 'CE')),
+              const SizedBox(width: 12),
+              Container(width: 1, height: 20, color: _cBorder),
+              const SizedBox(width: 12),
+              _chip('All States', _stateFilter == 'All', () => setState(() => _stateFilter = 'All')),
+              _chip('CA', _stateFilter == 'CA', () => setState(() => _stateFilter = 'CA')),
+              _chip('TX', _stateFilter == 'TX', () => setState(() => _stateFilter = 'TX')),
+              _chip('NY', _stateFilter == 'NY', () => setState(() => _stateFilter = 'NY')),
+              _chip('FL', _stateFilter == 'FL', () => setState(() => _stateFilter = 'FL')),
+            ],
+          ),
         ),
       );
-    }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        final course = items[index];
-        final progress = ((course['progress_percent'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
-        final title = course['title'] as String? ?? 'Untitled Course';
-        final states = ((course['states_approved'] as List?) ?? const [])
-            .map((e) => e.toString().toUpperCase())
-            .toList();
-        final stateText = states.isEmpty ? 'All States' : states.first;
-        final hours = (course['credit_hours'] as num?)?.toInt() ?? 0;
-        final status = (course['enrollment_status'] as String? ?? 'in_progress').toLowerCase();
-        final subtitle = '$stateText · $hours hrs';
-        final actionText = status == 'completed'
-            ? 'Certificate'
-            : status == 'wishlist'
-                ? 'Enroll'
-                : 'Resume';
-        final type = (course['type'] as String? ?? '').toUpperCase();
-        final icon = type == 'CE'
-            ? Icons.schedule
-            : type == 'EXAM_PREP'
-                ? Icons.assignment_outlined
-                : Icons.menu_book;
-
-        // Custom styling logic for the UI image matches
-        Color titleColor = kDark;
-        Color progressColor;
-        Color progressBgColor = kBlue.withValues(alpha: 0.15);
-        Color textColor;
-        
-        if (progress >= 1.0 || status == 'completed') {
-          progressColor = kTeal;
-          progressBgColor = kTeal.withValues(alpha: 0.15);
-          textColor = kTeal;
-        } else if (progress > 0 || status == 'in_progress') {
-          progressColor = kBlue;
-          textColor = kBlue;
-        } else if (status == 'wishlist') {
-          progressColor = Colors.transparent;
-          textColor = const Color(0xFF6B8397);
-        } else {
-          progressColor = const Color(0xFF6B8397);
-          textColor = const Color(0xFF6B8397);
-        }
-
-        return Container(
-          padding: const EdgeInsets.all(16),
+  Widget _chip(String label, bool active, VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: kWhite,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kBorder.withValues(alpha: 0.05)),
+            color: active ? _cBlue : _cWhite,
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(color: active ? _cBlue : _cBorder),
           ),
+          child: Text(label,
+              style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: active ? _cWhite : _cMuted)),
+        ),
+      );
+
+  // ── Course list ───────────────────────────────────────────────────
+  Widget _buildList() => RefreshIndicator(
+        color: _cBlue,
+        onRefresh: _fetchCourses,
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+          itemCount: _filtered.length,
+          itemBuilder: (ctx, i) => _CourseCard(
+            course: _filtered[i],
+            inCart: _isInCart(_filtered[i]['_id'] as String?),
+            onTap: () {},
+            onAddToCart: () => _addToCart(_filtered[i]),
+            onViewCart: _openCart,
+          ),
+        ),
+      );
+
+  Widget _buildEmpty() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: kDark,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: kBlue, size: 20),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            color: titleColor,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontWeight: FontWeight.w500,
-                            fontSize: 11,
-                            color: kMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (status != 'wishlist') const SizedBox(height: 16),
-              if (status != 'wishlist')
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(99),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 6,
-                    backgroundColor: progressBgColor,
-                    valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-                  ),
-                ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (status != 'wishlist')
-                    Text(
-                      '${(progress * 100).toInt()}% complete',
+              const Text('📚', style: TextStyle(fontSize: 42)),
+              const SizedBox(height: 14),
+              const Text('No courses found',
+                  style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w900,
+                      fontSize: 17,
+                      color: _cDark)),
+              const SizedBox(height: 6),
+              const Text('Try adjusting your filters or search.',
+                  style: TextStyle(
+                      fontFamily: 'Poppins', fontSize: 13, color: _cMuted),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () {
+                  _searchCtrl.clear();
+                  setState(() {
+                    _search      = '';
+                    _typeFilter  = 'All';
+                    _stateFilter = 'All';
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                      color: _cBlue, borderRadius: BorderRadius.circular(10)),
+                  child: const Text('Clear Filters',
                       style: TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: textColor,
-                      ),
-                    )
-                  else
-                    const SizedBox.shrink(),
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kBlue,
-                      foregroundColor: kWhite,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Text(
-                      actionText,
-                      style: const TextStyle(
-                        fontFamily: 'Poppins',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: _cWhite)),
+                ),
               ),
             ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
 
-  Widget _buildErrorView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _error,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Poppins',
-                fontWeight: FontWeight.w600,
-                color: kMuted,
+  Widget _buildError() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_rounded, size: 44, color: _cMuted),
+              const SizedBox(height: 12),
+              Text(_error,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontFamily: 'Poppins', fontSize: 13, color: _cMuted)),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: _fetchCourses,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                      color: _cBlue, borderRadius: BorderRadius.circular(10)),
+                  child: const Text('Retry',
+                      style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: _cWhite)),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _fetchCourses,
-              style: ElevatedButton.styleFrom(backgroundColor: kBlue),
-              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+      );
+}
+
+// ─── Course Card ──────────────────────────────────────────────────────
+class _CourseCard extends StatelessWidget {
+  final Map<String, dynamic> course;
+  final bool inCart;
+  final VoidCallback onTap;
+  final VoidCallback onAddToCart;
+  final VoidCallback onViewCart;
+
+  const _CourseCard({
+    required this.course,
+    required this.inCart,
+    required this.onTap,
+    required this.onAddToCart,
+    required this.onViewCart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title     = course['title']        as String? ?? 'Untitled Course';
+    final type      = (course['type']         as String? ?? '').toUpperCase();
+    final hours     = (course['credit_hours'] as num?)?.toInt() ?? 0;
+    final states    = ((course['states_approved'] as List?) ?? [])
+        .map((s) => s.toString().toUpperCase())
+        .toList();
+    final stateText = states.isEmpty ? 'All States' : states.take(3).join(', ');
+    final desc      = course['description']  as String? ?? '';
+    final price     = (course['price']        as num?)?.toDouble() ?? 0;
+
+    final Color accentColor   = type == 'PE' ? _cBlue  : type == 'CE' ? _cTeal  : _cAmber;
+    final Color accentFaint   = type == 'PE' ? _cBlueFaint : type == 'CE' ? _cTealFaint : const Color(0x1AF59E0B);
+    final Color accentBorder  = type == 'PE' ? _cBlueBorder : type == 'CE' ? _cTealBorder : const Color(0x38F59E0B);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        decoration: BoxDecoration(
+          color: _cWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: inCart ? accentBorder : _cBorder,
+              width: inCart ? 1.5 : 1),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3))
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Accent bar
+            Container(height: 4, color: accentColor),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                            color: _cDark,
+                            borderRadius: BorderRadius.circular(11)),
+                        child: Icon(
+                          type == 'CE'
+                              ? Icons.schedule_outlined
+                              : Icons.menu_book_outlined,
+                          color: accentColor,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            _badge(type, accentColor, accentFaint, accentBorder),
+                            if (stateText.isNotEmpty)
+                              _badge(stateText, _cMuted,
+                                  _cMuted.withOpacity(0.10),
+                                  _cMuted.withOpacity(0.20)),
+                            if (inCart)
+                              _badge('In Cart', _cBlue, _cBlueFaint,
+                                  _cBlueBorder),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Title
+                  Text(title,
+                      style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          color: _cDark,
+                          height: 1.4)),
+                  if (desc.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(desc,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 12,
+                            color: _cMuted,
+                            height: 1.5)),
+                  ],
+                  const SizedBox(height: 12),
+                  // Meta + action row
+                  Row(
+                    children: [
+                      const Icon(Icons.schedule_outlined,
+                          size: 13, color: _cMuted),
+                      const SizedBox(width: 4),
+                      Text('$hours credit hr${hours != 1 ? 's' : ''}',
+                          style: const TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _cMuted)),
+                      const Spacer(),
+                      // Enroll / In Cart button
+                      GestureDetector(
+                        onTap: inCart ? onViewCart : onAddToCart,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: inCart
+                                ? _cBlueFaint
+                                : _cDark,
+                            borderRadius: BorderRadius.circular(10),
+                            border: inCart
+                                ? Border.all(color: _cBlueBorder)
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (price > 0 && !inCart) ...[
+                                Text(
+                                  '\$${price.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                      color: _cWhite),
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                              Icon(
+                                inCart
+                                    ? Icons.shopping_cart_rounded
+                                    : Icons.shopping_cart_outlined,
+                                size: 13,
+                                color: _cBlue,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                inCart ? 'View Cart' : 'Enroll',
+                                style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: _cBlue),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -492,4 +743,20 @@ class _CoursesScreenState extends State<CoursesScreen> {
     );
   }
 
+  Widget _badge(String label, Color color, Color bg, Color border) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: border),
+        ),
+        child: Text(
+          label.isEmpty ? '—' : label,
+          style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: color),
+        ),
+      );
 }

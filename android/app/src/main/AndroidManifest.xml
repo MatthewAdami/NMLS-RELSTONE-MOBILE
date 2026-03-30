@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ✅ Required for HTTP API calls -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
@@ -9,8 +8,6 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
-        <!-- ☝️ usesCleartextTraffic="true" allows http:// (not just https://)
-             Required for 10.0.2.2:8000 on Android -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -33,10 +30,22 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
+
     <queries>
+        <!-- Existing -->
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- ← Add these -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
     </queries>
+
 </manifest>

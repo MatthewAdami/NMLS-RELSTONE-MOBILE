@@ -2,277 +2,173 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:nmls_mobile/config/api_config.dart';
-import 'package:nmls_mobile/faq_screen.dart';
-import 'contact_support_page.dart';
-import 'package:nmls_mobile/ce_tracker_screen.dart';
-import 'package:nmls_mobile/exam_prep_screen.dart';
+import 'package:nmls_mobile/contact_support_page.dart';
+import 'package:nmls_mobile/courses_screen.dart';
 import 'package:nmls_mobile/my_certificates_screen.dart';
-import 'package:nmls_mobile/widgets/app_bottom_nav.dart';
+import 'package:nmls_mobile/my_courses_screen.dart';
+import 'package:nmls_mobile/orders_screen.dart';
+import 'package:nmls_mobile/profile_screen.dart' hide AppTopBar, AppSidebar;
+import 'package:nmls_mobile/widgets/app_side_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ─── Theme ────────────────────────────────────────────────────────────
-const kDark        = Color(0xFF091925);
-const kBlue        = Color(0xFF2EABFE);
-const kBlueFaint   = Color(0x1A2EABFE);
-const kBlueBorder  = Color(0x382EABFE);
-const kTeal        = Color(0xFF00B4B4);
-const kTealFaint   = Color(0x1A00B4B4);
-const kTealBorder  = Color(0x3300B4B4);
-const kAmber       = Color(0xFFF59E0B);
-const kAmberFaint  = Color(0x1AF59E0B);
-const kAmberBorder = Color(0x38F59E0B);
-const kBg          = Color(0xFFF6F7FB);
-const kWhite       = Colors.white;
-const kMuted       = Color(0x990B1220);
-const kBorder      = Color(0x1A020817);
-const kSurface     = Color(0xD0FFFFFF);
+const kDark       = Color(0xFF091925);
+const kBlue       = Color(0xFF2EABFE);
+const kBlueFaint  = Color(0x1A2EABFE);
+const kAmber      = Color(0xFFF59E0B);
+const kGreen      = Color(0xFF008000);
+const kBg         = Color(0xFFF6F7FB);
+const kWhite      = Colors.white;
+const kMuted      = Color(0xFF7FA8C4);
+const kBorder     = Color(0x12020817);
 
-// ── Custom Widgets ──────────────────────────────────────────────────
-// Sidebar drawer menu
-class _SidebarDrawer extends StatelessWidget {
-  final VoidCallback onCertificatesTap;
-  final String userName;
-  final String userEmail;
-  final String? token;
-  const _SidebarDrawer({
-    required this.onCertificatesTap,
-    required this.userName,
-    required this.userEmail,
-    this.token,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Drawer(
-      child: Container(
-        color: kDark,
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-              decoration: BoxDecoration(
-                color: kBlue,
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
-              ),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person, size: 40, color: kBlue),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(userName, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 18, color: kDark)),
-                  Text(userEmail, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w400, fontSize: 14, color: kDark.withValues(alpha: 0.7))),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            _DrawerItem(icon: Icons.home, label: 'Home', onTap: () {
-              Navigator.of(context).pop();
-              // Navigate to Home
-            }),
-            _DrawerItem(icon: Icons.book, label: 'Courses', onTap: () {
-              Navigator.of(context).pop();
-              // Navigate to Courses
-            }),
-            _DrawerItem(icon: Icons.assignment, label: 'Exam Prep', onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ExamPrepScreen(
-                token: token,
-                userName: userName,
-                userEmail: userEmail,
-              )));
-            }),
-            _DrawerItem(icon: Icons.access_time, label: 'CE Tracker', onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => CETrackerScreen(
-                token: token,
-                userName: userName,
-                userEmail: userEmail,
-              )));
-            }),
-            const SizedBox(height: 20),
-            Divider(color: Colors.white54),
-            const SizedBox(height: 20),
-            _DrawerItem(icon: Icons.help, label: 'FAQ', onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => FaqScreen()));
-            }),
-            _DrawerItem(icon: Icons.support, label: 'Contact Support', onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => ContactSupportPage(userName: userName, userEmail: userEmail)));
-            }),
-            const SizedBox(height: 20),
-            Divider(color: Colors.white54),
-            const SizedBox(height: 20),
-            _DrawerItem(icon: Icons.logout, label: 'Sign Out', onTap: () {
-              // Handle sign out
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Drawer item widget
-class _DrawerItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _DrawerItem({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 24),
-            const SizedBox(width: 16),
-            Text(label, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 16, color: Colors.white)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Main Dashboard Screen ─────────────────────────────────────────────
 class DashboardScreen extends StatefulWidget {
   final Map<String, dynamic>? user;
-  final String? token;
+  final String? token; // kept for compatibility — token is loaded from SharedPreferences internally
   const DashboardScreen({Key? key, this.user, this.token}) : super(key: key);
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen>
-    with SingleTickerProviderStateMixin {
-
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  late AnimationController _fadeCtrl;
-  late Animation<double>   _fadeAnim;
-
+class _DashboardScreenState extends State<DashboardScreen> {
+  // ── State ─────────────────────────────────────────────────────────
   Map<String, dynamic>? _dashboard;
+  Map<String, dynamic>? _transcript;
+  List<Map<String, dynamic>> _certificates = [];
+
   bool   _loading = true;
   String _error   = '';
+  String? _token;
 
-  String get _apiBase => '${ApiConfig.baseUrl}${ApiConfig.apiPrefix}';
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    if (widget.token != null) 'Authorization': 'Bearer ${widget.token}',
-  };
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // ── Derived getters ───────────────────────────────────────────────
+  // ── Derived: mirrors web dashboard ────────────────────────────────
   Map<String, dynamic> get _profile =>
       Map<String, dynamic>.from(_dashboard?['profile'] as Map? ?? {});
 
   String get _userName {
-    final profileFull = (_profile['full_name'] as String?)?.trim();
-    if (profileFull != null && profileFull.isNotEmpty) return profileFull;
-    final profileFullCamel = (_profile['fullName'] as String?)?.trim();
-    if (profileFullCamel != null && profileFullCamel.isNotEmpty) return profileFullCamel;
-
-    final profileName = (_profile['name'] as String?)?.trim();
-    if (profileName != null && profileName.isNotEmpty) return profileName;
-
-    final profileFirst = (_profile['first_name'] as String?)?.trim() ?? '';
-    final profileLast = (_profile['last_name'] as String?)?.trim() ?? '';
-    final profileCombined = '$profileFirst $profileLast'.trim();
-    if (profileCombined.isNotEmpty) return profileCombined;
-    final profileFirstCamel = (_profile['firstName'] as String?)?.trim() ?? '';
-    final profileLastCamel = (_profile['lastName'] as String?)?.trim() ?? '';
-    final profileCombinedCamel = '$profileFirstCamel $profileLastCamel'.trim();
-    if (profileCombinedCamel.isNotEmpty) return profileCombinedCamel;
-    final nestedProfile = _profile['user'] as Map?;
-    if (nestedProfile != null) {
-      final nestedName = (nestedProfile['full_name'] ??
-              nestedProfile['fullName'] ??
-              nestedProfile['name']) as String?;
-      final value = (nestedName ?? '').trim();
-      if (value.isNotEmpty) return value;
-    }
-
-    final userFull = (widget.user?['full_name'] as String?)?.trim();
-    if (userFull != null && userFull.isNotEmpty) return userFull;
-    final userFullCamel = (widget.user?['fullName'] as String?)?.trim();
-    if (userFullCamel != null && userFullCamel.isNotEmpty) return userFullCamel;
-
-    final userName = (widget.user?['name'] as String?)?.trim();
-    if (userName != null && userName.isNotEmpty) return userName;
-
-    final userFirst = (widget.user?['first_name'] as String?)?.trim() ?? '';
-    final userLast = (widget.user?['last_name'] as String?)?.trim() ?? '';
-    final userCombined = '$userFirst $userLast'.trim();
-    if (userCombined.isNotEmpty) return userCombined;
-    final userFirstCamel = (widget.user?['firstName'] as String?)?.trim() ?? '';
-    final userLastCamel = (widget.user?['lastName'] as String?)?.trim() ?? '';
-    final userCombinedCamel = '$userFirstCamel $userLastCamel'.trim();
-    if (userCombinedCamel.isNotEmpty) return userCombinedCamel;
-
-    return '';
+    final n = (_profile['name'] as String?)?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    return (widget.user?['name'] as String?)?.trim() ?? 'Student';
   }
 
-  String get _userEmail {
-    final profileEmail = (_profile['email'] ?? _profile['user_email']) as String?;
-    final userEmail = (widget.user?['email'] ?? widget.user?['user_email']) as String?;
-    return (profileEmail ?? userEmail ?? '').trim();
-  }
-  String get _nmlsId    => (_profile['nmls_id'] as String?) ?? 'Not set';
-  String get _state     => (_profile['state']   as String?) ?? 'Not set';
+  String get _userEmail =>
+      ((_profile['email'] ?? widget.user?['email']) as String?)?.trim() ?? '';
 
-  List<Map<String, dynamic>> get _allCompletions {
-    final pe = (_dashboard?['completions']?['PE'] as List?) ?? [];
-    final ce = (_dashboard?['completions']?['CE'] as List?) ?? [];
-    final all = [...pe, ...ce].map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  String get _nmlsId => (_profile['nmls_id'] as String?) ?? '—';
+  String get _state  => (_profile['state']   as String?) ?? '—';
+
+  List<Map<String, dynamic>> get _availableCourses {
+    final raw = (_dashboard?['available_courses'] as List?) ?? [];
+    return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  int get _inProgressCount =>
+      _availableCourses.where((c) => c['already_completed'] != true).length;
+
+  List<Map<String, dynamic>> get _recentCompletions {
+    final pe  = (_dashboard?['completions']?['PE'] as List?) ?? [];
+    final ce  = (_dashboard?['completions']?['CE'] as List?) ?? [];
+    final all = [...pe, ...ce]
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
     all.sort((a, b) {
-      final da = a['completed_at'] != null ? DateTime.tryParse(a['completed_at'])?.millisecondsSinceEpoch ?? 0 : 0;
-      final db = b['completed_at'] != null ? DateTime.tryParse(b['completed_at'])?.millisecondsSinceEpoch ?? 0 : 0;
+      final da = DateTime.tryParse(a['completed_at'] ?? '')?.millisecondsSinceEpoch ?? 0;
+      final db = DateTime.tryParse(b['completed_at'] ?? '')?.millisecondsSinceEpoch ?? 0;
       return db.compareTo(da);
     });
-    return all;
+    return all.take(5).toList();
   }
-
-  List<Map<String, dynamic>> get _recentCompletions => _allCompletions.take(5).toList();
 
   List<Map<String, dynamic>> get _orders {
     final raw = (_dashboard?['orders'] as List?) ?? [];
     return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
+  Map<String, dynamic>? get _ceTracker =>
+      _dashboard?['ce_tracker'] as Map<String, dynamic>?;
+
+  // ── Headers ───────────────────────────────────────────────────────
+  Map<String, String> get _headers => {
+    'Content-Type': 'application/json',
+    if (_token != null) 'Authorization': 'Bearer $_token',
+  };
+
   // ── Lifecycle ─────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _fadeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
-    _fadeCtrl.forward();
-    _fetchDashboard();
+    _init();
   }
 
-  @override
-  void dispose() { _fadeCtrl.dispose(); super.dispose(); }
+  Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    _token = prefs.getString('token');
+    await _fetchAll();
+  }
 
-  Future<void> _fetchDashboard() async {
+  // ── Fetch — mirrors web: Promise.all([dashboard, transcript, certificates])
+  Future<void> _fetchAll() async {
     setState(() { _loading = true; _error = ''; });
     try {
-      final res = await http
-          .get(Uri.parse('$_apiBase/dashboard'), headers: _headers)
-          .timeout(const Duration(seconds: 10));
-      if (res.statusCode == 200) {
-        setState(() => _dashboard = Map<String, dynamic>.from(jsonDecode(res.body) as Map));
-      } else {
-        setState(() => _error = 'Failed to load (${res.statusCode})');
+      final results = await Future.wait([
+        _get('${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/dashboard'),
+        _get('${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/dashboard/transcript'),
+        _get('${ApiConfig.baseUrl}${ApiConfig.apiPrefix}/certificates'),
+      ]);
+
+      // ── Dashboard
+      if (results[0]['statusCode'] == 200) {
+        _dashboard = Map<String, dynamic>.from(results[0]['data'] as Map);
+      }
+
+      // ── Transcript
+      if (results[1]['statusCode'] == 200) {
+        _transcript = Map<String, dynamic>.from(results[1]['data'] as Map);
+      }
+
+      // ── Certificates — mirrors web: certsRes.data?.certificates || []
+      if (results[2]['statusCode'] == 200) {
+        final raw = (results[2]['data']?['certificates'] as List?) ?? [];
+        _certificates = raw.map((c) {
+          final m = Map<String, dynamic>.from(c as Map);
+          return {
+            '_id':             m['_id'],
+            'course_title':    m['course_title']    ?? '—',
+            'course_type':     m['course_type']     ?? '—',
+            'credit_hours':    m['credit_hours'],
+            'nmls_course_id':  m['nmls_course_id']  ?? '—',
+            'completed_at':    m['completed_at'],
+            'certificate_url': m['certificate_url'],
+          };
+        }).toList();
+      }
+
+      if (_dashboard == null) {
+        setState(() => _error = 'Failed to load dashboard');
       }
     } catch (e) {
       setState(() => _error = 'Network error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<Map<String, dynamic>> _get(String url) async {
+    try {
+      final res = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 10));
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(res.body) as Map<String, dynamic>;
+      } catch (_) {
+        data = {'message': res.body};
+      }
+      return {'statusCode': res.statusCode, 'data': data};
+    } catch (e) {
+      return {'statusCode': 0, 'data': {'message': '$e'}};
     }
   }
 
@@ -282,558 +178,566 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: kBg,
-      endDrawer: _SidebarDrawer(onCertificatesTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => MyCertificatesScreen(
-              userName: _userName,
-              userEmail: _userEmail,
+      appBar: AppTopBar(
+        scaffoldKey: _scaffoldKey,
+        userName: _userName,
+        nmlsId: _nmlsId != '—' ? _nmlsId : null,
+      ),
+      drawer: AppSidebar(
+        userName: _userName,
+        userEmail: _userEmail,
+        nmlsId: _nmlsId != '—' ? _nmlsId : null,
+        currentRoute: '/dashboard',
+        onNavigate: (route) {
+          Navigator.of(context).pop(); // close drawer
+          switch (route) {
+            case '/my-courses':
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MyCoursesScreen()),
+              ).then((_) => mounted ? setState(() {}) : null);
+              break;
+            case '/courses':
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CoursesScreen(
+                    token: _token,
+                    userName: _userName,
+                    userEmail: _userEmail,
+                  ),
+                ),
+              ).then((_) => mounted ? setState(() {}) : null);
+              break;
+             
+            case '/orders':
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => OrdersScreen(token: _token)),
+              ).then((_) => mounted ? setState(() {}) : null);
+              break;
+            case '/certificates':
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MyCertificatesScreen(
+                    user: {
+                      'name': widget.user?['name'] ?? '',
+                      'email': widget.user?['email'] ?? '',
+                      'state': widget.user?['state'] ?? '',
+                    },
+                  ),
+                ),
+              );
+              break;
+            case '/profile':
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ProfilePage(
+                    userName: _userName,
+                    userEmail: _userEmail,
+                    nmlsId: _nmlsId != '—' ? _nmlsId : '',
+                  ),
+                ),
+              ).then((_) => mounted ? setState(() {}) : null);
+              break;
+              case '/support':
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ContactSupportPage(
+                    userName: _userName,
+                    userEmail: _userEmail,
+                    // nmlsId:    _nmlsId,
+                  ),
+                ),
+              ).then((_) => mounted ? setState(() {}) : null);
+            case '/dashboard':
+              break;
+            default:
+              break;
+          }
+        },
+        
+        onSignOut: () {
+          Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+        },
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: kBlue))
+          : RefreshIndicator(
+              color: kBlue,
+              onRefresh: _fetchAll,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_error.isNotEmpty) _buildErrorBanner(),
+                    _buildStatCards(),
+                    const SizedBox(height: 16),
+                    _buildSectionLabel('MY COURSES'),
+                    _buildCourses(),
+                    const SizedBox(height: 16),
+                    _buildSectionLabel('RECENT COMPLETIONS'),
+                    _buildRecentCompletions(),
+                    const SizedBox(height: 16),
+                    _buildSectionLabel('CE TRACKER'),
+                    _buildCeTracker(),
+                    const SizedBox(height: 16),
+                    _buildSectionLabel('CERTIFICATES'),
+                    _buildCertificates(),
+                    const SizedBox(height: 16),
+                    _buildSectionLabel('ORDERS'),
+                    _buildOrders(),
+                    const SizedBox(height: 32),
+                  ],
+                ),
+              ),
             ),
-          ),
-        );
-      }, userName: _userName, userEmail: _userEmail, token: widget.token),
-      drawer: null,
-      body: SafeArea(child: Column(children: [
-        _buildTopBar(),
-        Expanded(child: _loading
-            ? _loadingView()
-            : _buildBody()),
-        AppBottomNav(
-          activeTab: AppNavTab.home,
-          userName: _userName,
-          userEmail: _userEmail,
-              token: widget.token,
-          nmlsId: _nmlsId,
-          state: _state,
-          onSignOut: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
-        ),
-      ])),
     );
   }
 
-  // ── Top Bar ───────────────────────────────────────────────────────
-   // Redesigned header card (matches provided image)
-  Widget _buildTopBar() => Container(
-    color: kDark,
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
-          child: Row(
+  // ── Error banner ──────────────────────────────────────────────────
+  Widget _buildErrorBanner() => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 12),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: const Color(0x1AC0392B),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0x38C0392B)),
+    ),
+    child: Text(_error,
+        style: const TextStyle(
+            fontFamily: 'Poppins', fontSize: 12, color: Color(0xFFC0392B))),
+  );
+
+  // ── Stat Cards — mirrors web: Enrolled / Certificates / In Progress / StudentID
+  Widget _buildStatCards() => GridView.count(
+    crossAxisCount: 2,
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    crossAxisSpacing: 10,
+    mainAxisSpacing: 10,
+    childAspectRatio: 1.6,
+    children: [
+      _StatCard(label: 'Courses Enrolled', value: '${_availableCourses.length}', color: kBlue),
+      _StatCard(label: 'Certificates', value: '${_certificates.length}', color: kGreen),
+      _StatCard(label: 'In Progress', value: '$_inProgressCount', color: kAmber),
+      _StatCard(label: 'Student ID', value: _nmlsId != '—' ? '#NM-$_nmlsId' : '—', color: const Color(0xFF9569F7)),
+    ],
+  );
+
+  // ── Courses — mirrors web CourseRow ───────────────────────────────
+  Widget _buildCourses() {
+    if (_availableCourses.isEmpty) return _emptyMsg('No courses enrolled yet.');
+    return Column(
+      children: _availableCourses.take(5).map((c) {
+        final title    = (c['title'] as String?) ?? 'Untitled';
+        final progress = ((c['progress'] as num?)?.toDouble() ?? 0).clamp(0.0, 100.0);
+        final isDone   = c['already_completed'] == true;
+        final color    = isDone ? kGreen : progress > 0 ? kAmber : kBlue;
+        return _card(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Good morning,',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontWeight: FontWeight.w400,
-                          fontSize: 14,
-                          color: Colors.white.withValues(alpha: 0.85),
-                        )),
-                    Row(
-                      children: [
-                        Text(_userName, // Use actual user name
-                            style: TextStyle(
-                              fontFamily: 'Poppins',
-                              fontWeight: FontWeight.w700,
-                              fontSize: 22,
-                              color: Colors.white,
-                              letterSpacing: -0.2,
-                            )),
-                        const SizedBox(width: 6),
-                        const Text('👋', style: TextStyle(fontSize: 22)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Stack(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded, color: kBlue, size: 28),
-                    onPressed: () {},
-                  ),
-                  Positioned(
-                    right: 8, top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(99)),
-                      child: Text('3', style: const TextStyle(
-                        fontFamily: 'Poppins', color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              _StatCard(label: 'In Progress', value: '3'),
-              const SizedBox(width: 10),
-              _StatCard(label: 'Completed', value: '12'),
-              const SizedBox(width: 10),
-              _StatCard(label: 'CE Hours', value: '20h'),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-
-  // ── Body ──────────────────────────────────────────────────────────
-  Widget _buildBody() => RefreshIndicator(
-    color: kBlue,
-    onRefresh: _fetchDashboard,
-    child: SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(children: [
-        if (_error.isNotEmpty)
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0x1AC0392B),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0x38C0392B)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.wifi_off_rounded, color: Color(0xFFC0392B), size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Could not refresh dashboard data. Showing available UI.',
-                    style: const TextStyle(
+              Text(title,
+                  style: const TextStyle(
                       fontFamily: 'Poppins',
                       fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      color: Color(0xFFC0392B),
+                      fontSize: 14,
+                      color: kDark)),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      value: isDone ? 1.0 : progress / 100,
+                      minHeight: 6,
+                      backgroundColor: kBlueFaint,
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
                     ),
                   ),
                 ),
-              ],
-            ),
+                const SizedBox(width: 10),
+                Text(
+                  isDone ? '100%' : '${progress.round()}%',
+                  style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: color),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              _statusBadge(isDone ? 'Complete' : progress > 0 ? 'In Progress' : 'Not Started', color),
+            ],
           ),
-        // MY LEARNING HEADER (left-aligned)
-        Container(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
-          child: Text('MY LEARNING',
-            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
-        ),
-        _buildMyLearningSection(),
-        // NEXT UP HEADER (left-aligned)
-        Container(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
-          child: Text('NEXT UP',
-            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
-        ),
-        _buildNextUpSection(),
-        // UPCOMING DEADLINES HEADER (left-aligned)
-        Container(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
-          child: Text('UPCOMING DEADLINES',
-            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
-        ),
-        _buildDeadlinesSection(),
-        // ACHIEVEMENTS HEADER (left-aligned)
-        Container(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
-          child: Text('ACHIEVEMENTS',
-            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
-        ),
-        _buildAchievementsSection(),
-        // RECOMMENDED FOR YOU HEADER (left-aligned)
-        Container(
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
-          child: Text('RECOMMENDED FOR YOU',
-            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
-        ),
-        _buildRecommendedForYouSection(),
-        const SizedBox(height: 32),
-      ]),
-    ),
-  );
+        );
+      }).toList(),
+    );
+  }
 
-  // 2. MY LEARNING SECTION: Courses in progress with % completion bar and Resume button
-  Widget _buildMyLearningSection() {
-    // Use mock data for in-progress courses
-    final inProgressCourses = [
-      {
-        'title': 'Real Estate Principles',
-        'progress_percent': 0.72,
-        'last_lesson': 'Ch. 8 — Contracts',
-      },
-      {
-        'title': 'Mortgage Brokerage',
-        'progress_percent': 0.38,
-        'last_lesson': 'Ch. 3 — FHA Loans',
-      },
-    ];
+  // ── Recent Completions — mirrors web CompletionRow ────────────────
+  Widget _buildRecentCompletions() {
+    if (_recentCompletions.isEmpty) return _emptyMsg('Complete a course to see your record here.');
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ...inProgressCourses.map((course) {
-          final title = course['title'] as String? ?? 'Untitled';
-          final progress = ((course['progress_percent'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
-          final progressPct = (progress * 100).round();
-          final lastLesson = course['last_lesson'] as String? ?? '';
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: kWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: kBorder),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: Offset(0, 2))],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 15, color: kDark)),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(99),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 8,
-                          backgroundColor: kBlueFaint,
-                          valueColor: AlwaysStoppedAnimation<Color>(kBlue),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text('$progressPct%', style: TextStyle(fontFamily: 'JetBrains Mono', fontSize: 13, color: kBlue, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Last: $lastLesson', style: TextStyle(fontFamily: 'Poppins', fontSize: 13, color: kMuted)),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: kBlue,
-                        foregroundColor: kWhite,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                        textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
-                      ),
-                      onPressed: () {},
-                      child: Text('Resume'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ],
-    );
-  }
-
-  // NEXT UP SECTION: Use mock data
-  Widget _buildNextUpSection() {
-    final nextLesson = 'Ch. 9 — Property Law';
-    final courseTitle = 'Real Estate Principles';
-    final duration = '22 min · Video';
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: kDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kBlueBorder),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.play_circle_fill, color: kBlue, size: 32),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(courseTitle, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 13, color: kWhite)),
-                Text(nextLesson, style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 15, color: kWhite)),
-                Text(duration, style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kWhite.withValues(alpha: 0.7))),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kBlue,
-              foregroundColor: kWhite,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              textStyle: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13),
-            ),
-            onPressed: () {},
-            child: Text('Start'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // DEADLINES SECTION
-  Widget _buildDeadlinesSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: kWhite,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFFFF6B6B))),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('CA License Renewal', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: kDark)),
-                    const SizedBox(height: 2),
-                    Text('28 days remaining', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMuted)),
-                  ],
-                ),
-              ),
-              Text('Jun 18', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFFFF6B6B))),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1, color: kBorder, thickness: 1),
-          ),
-          Row(
-            children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: kBlue)),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('CE Hours Due', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 14, color: kDark)),
-                    const SizedBox(height: 2),
-                    Text('4 hrs remaining', style: TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kMuted)),
-                  ],
-                ),
-              ),
-              Text('Jul 1', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: kBlue)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ACHIEVEMENTS SECTION
-  Widget _buildAchievementsSection() {
-    final achievements = [
-      {'icon': '🏆', 'label': 'Top Scorer', 'locked': false},
-      {'icon': '🔥', 'label': '7-Day Streak', 'locked': false},
-      {'icon': '📜', 'label': '3 Certs', 'locked': false},
-      {'icon': '🌟', 'label': 'Locked', 'locked': true},
-    ];
-    return SizedBox(
-      height: 104,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        scrollDirection: Axis.horizontal,
-        itemCount: achievements.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final a = achievements[index];
-          final bool locked = a['locked'] as bool;
-          return Container(
-            width: 100,
-            decoration: BoxDecoration(
-              color: locked ? kBlue.withValues(alpha: 0.05) : kWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: locked ? Border.all(color: kBlue.withValues(alpha: 0.15), width: 1.5, strokeAlign: BorderSide.strokeAlignInside) : null,
-              boxShadow: locked ? null : [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Opacity(
-              opacity: locked ? 0.4 : 1.0,
+      children: _recentCompletions.map((item) {
+        final title = (item['course']?['title'] ?? item['course_id']?['title'] ?? '—') as String;
+        final type  = (item['course']?['type']  ?? item['course_id']?['type']  ?? '') as String;
+        final hrs   = item['course']?['credit_hours'] ?? item['course_id']?['credit_hours'] ?? '—';
+        final date  = item['completed_at'] != null
+            ? DateTime.tryParse(item['completed_at'])?.toLocal().toString().split(' ')[0] ?? '—'
+            : '—';
+        return _card(
+          child: Row(children: [
+            Expanded(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(a['icon'] as String, style: const TextStyle(fontSize: 28)),
-                  const SizedBox(height: 8),
-                  Text(a['label'] as String,
-                    style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 12, color: kDark)),
+                  Text(title,
+                      style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: kDark)),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    _typeBadge(type),
+                    const SizedBox(width: 8),
+                    Text('$hrs hrs · $date',
+                        style: const TextStyle(
+                            fontFamily: 'Poppins', fontSize: 11, color: kMuted)),
+                  ]),
                 ],
               ),
             ),
-          );
-        },
-      ),
+          ]),
+        );
+      }).toList(),
     );
   }
 
-  // ── Recommended For You Section ──────────────────────────────────────
-  Widget _buildRecommendedForYouSection() {
-    final recommended = [
-      {'title': 'CE: Agency Law', 'state': 'CA', 'hours': 3, 'icon': Icons.menu_book},
-      {'title': 'Fair Housing Act', 'state': 'CA', 'hours': 2, 'icon': Icons.article_outlined},
-      {'title': 'Ethical Practices', 'state': 'TX', 'hours': 4, 'icon': Icons.gavel},
-    ];
-    return SizedBox(
-      height: 166,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: recommended.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (context, index) {
-          final c = recommended[index];
-          return Container(
-            width: 156,
-            decoration: BoxDecoration(
-              color: kWhite,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
+  // ── CE Tracker — mirrors web CE Tracker panel ─────────────────────
+  Widget _buildCeTracker() {
+    final ce = _ceTracker;
+    if (ce == null) return _emptyMsg('Complete a CE course to begin tracking.');
+    final required  = (ce['required_hours']  as num?)?.toInt() ?? 8;
+    final completed = (ce['completed_hours'] as num?)?.toInt() ?? 0;
+    final deadline  = ce['deadline'] as String? ?? '—';
+    final daysLeft  = ce['days_left'] as int?;
+    final subjects  = (ce['subjects'] as List?) ?? [];
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Annual CE Tracker',
+                      style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: kDark)),
+                  Text('Deadline: $deadline',
+                      style: const TextStyle(
+                          fontFamily: 'Poppins', fontSize: 11, color: kMuted)),
+                ],
+              ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 94,
-                  color: kDark,
-                  alignment: Alignment.center,
-                  child: Icon(c['icon'] as IconData, color: kBlue, size: 38),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(c['title'] as String,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700, fontSize: 13, color: kDark)),
-                        const SizedBox(height: 4),
-                        Text('${c['hours']} CE hrs · ${c['state']}',
-                          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w500, fontSize: 11, color: kMuted)),
-                      ],
+            if (daysLeft != null) Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: kBlue.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: kBlue.withOpacity(0.4)),
+              ),
+              child: Text('$daysLeft days left',
+                  style: const TextStyle(
+                      fontFamily: 'Poppins', fontSize: 10,
+                      fontWeight: FontWeight.w700, color: kBlue)),
+            ),
+          ]),
+          const SizedBox(height: 12),
+          Text(
+            '$completed / $required hrs completed',
+            style: const TextStyle(
+                fontFamily: 'Poppins', fontWeight: FontWeight.w600, fontSize: 13, color: kDark),
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: required > 0 ? (completed / required).clamp(0.0, 1.0) : 0,
+              minHeight: 8,
+              backgroundColor: kBlueFaint,
+              valueColor: const AlwaysStoppedAnimation<Color>(kBlue),
+            ),
+          ),
+          if (subjects.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ...subjects.map((row) {
+              final m     = Map<String, dynamic>.from(row as Map);
+              final label = m['label'] as String? ?? '';
+              final tot   = (m['total'] as num?)?.toInt() ?? 0;
+              final comp  = (m['completed'] as num?)?.toInt() ?? 0;
+              final pct   = tot > 0 ? comp / tot : 0.0;
+              final color = pct == 1.0 ? kGreen : pct > 0 ? kAmber : Colors.red;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(child: Text(label,
+                          style: const TextStyle(fontFamily: 'Poppins', fontSize: 12, color: kDark))),
+                      Text('$comp/$tot',
+                          style: TextStyle(
+                              fontFamily: 'Poppins',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: color)),
+                    ]),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(
+                        value: pct.toDouble(),
+                        minHeight: 5,
+                        backgroundColor: Colors.black12,
+                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
+              );
+            }).toList(),
+          ],
+        ],
       ),
     );
   }
 
+  // ── Certificates ──────────────────────────────────────────────────
+  Widget _buildCertificates() {
+    if (_certificates.isEmpty) return _emptyMsg('No certificates yet.');
+    return Column(
+      children: _certificates.take(3).map((c) {
+        final title = c['course_title'] as String? ?? '—';
+        final date  = c['completed_at'] != null
+            ? DateTime.tryParse(c['completed_at'])?.toLocal().toString().split(' ')[0] ?? '—'
+            : '—';
+        final type  = c['course_type'] as String? ?? '';
+        return _card(
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: kGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: kGreen.withOpacity(0.3)),
+              ),
+              child: const Icon(Icons.workspace_premium, color: kGreen, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: kDark)),
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    _typeBadge(type),
+                    const SizedBox(width: 8),
+                    Text('Issued $date',
+                        style: const TextStyle(
+                            fontFamily: 'Poppins', fontSize: 11, color: kMuted)),
+                  ]),
+                ],
+              ),
+            ),
+          ]),
+        );
+      }).toList(),
+    );
+  }
 
+  // ── Orders ────────────────────────────────────────────────────────
+  Widget _buildOrders() {
+    if (_orders.isEmpty) return _emptyMsg('No orders yet.');
+    return Column(
+      children: _orders.take(3).map((order) {
+        final id     = (order['_id'] as String? ?? '').characters.toList().reversed.take(6).toList().reversed.join().toUpperCase();
+        final status = (order['status'] as String? ?? '').toLowerCase();
+        final total  = (order['total_amount'] as num?)?.toDouble() ?? 0;
+        final items  = (order['items'] as List?) ?? [];
+        final statusColor = status == 'paid' || status == 'completed'
+            ? kGreen : status == 'pending' ? kAmber : Colors.red;
+        return _card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Expanded(
+                  child: Text('Order #$id',
+                      style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: kDark)),
+                ),
+                _statusBadge(order['status'] ?? '—', statusColor),
+              ]),
+              const SizedBox(height: 8),
+              ...items.map((item) {
+                final m     = Map<String, dynamic>.from(item as Map);
+                final title = m['course_id']?['title'] as String? ?? 'Course';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(children: [
+                    const Icon(Icons.book_outlined, size: 14, color: kBlue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(title,
+                          style: const TextStyle(
+                              fontFamily: 'Poppins', fontSize: 12, color: kDark)),
+                    ),
+                  ]),
+                );
+              }).toList(),
+              const Divider(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'Total: \$${total.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: kDark),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
 
+  // ── Helpers ───────────────────────────────────────────────────────
+  Widget _buildSectionLabel(String label) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(label,
+        style: const TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            color: kDark,
+            letterSpacing: 0.5)),
+  );
 
+  Widget _card({required Widget child}) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: kWhite,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: kBorder),
+      boxShadow: [
+        BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+      ],
+    ),
+    child: child,
+  );
 
+  Widget _emptyMsg(String msg) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Center(
+      child: Text(msg,
+          style: const TextStyle(
+              fontFamily: 'Poppins', fontSize: 12, color: kMuted)),
+    ),
+  );
 
+  Widget _typeBadge(String type) {
+    final t = type.toUpperCase();
+    final color = t == 'PE' ? kBlue : t == 'CE' ? const Color(0xFF008C8C) : kMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(t.isEmpty ? '—' : t,
+          style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: color)),
+    );
+  }
 
-
-
-  Widget _loadingView() => const Center(child: SizedBox(
-    width: 32, height: 32,
-    child: CircularProgressIndicator(strokeWidth: 2.5,
-        valueColor: AlwaysStoppedAnimation<Color>(kBlue)),
-  ));
-
-  Widget _errorView() => Center(child: Padding(
-    padding: const EdgeInsets.all(24),
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 52, height: 52,
-          decoration: BoxDecoration(color: const Color(0x1AC0392B),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0x38C0392B))),
-          child: const Icon(Icons.wifi_off_rounded, color: Color(0xFFC0392B), size: 22)),
-      const SizedBox(height: 12),
-      Text(_error, textAlign: TextAlign.center,
-          style: const TextStyle(fontWeight: FontWeight.w900, color: kDark, fontSize: 14)),
-      const SizedBox(height: 16),
-      GestureDetector(onTap: _fetchDashboard, child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(color: kBlue, borderRadius: BorderRadius.circular(12)),
-        child: const Text('Retry',
-            style: TextStyle(color: kWhite, fontWeight: FontWeight.w900, fontSize: 13)),
-      )),
-    ]),
-  ));
+  Widget _statusBadge(String label, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.12),
+      borderRadius: BorderRadius.circular(99),
+      border: Border.all(color: color.withOpacity(0.3)),
+    ),
+    child: Text(label,
+        style: TextStyle(
+            fontFamily: 'Poppins',
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: color)),
+  );
 }
 
-
-
-// Add _StatCard widget
+// ── Stat Card ──────────────────────────────────────────────────────
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  const _StatCard({required this.label, required this.value});
+  final Color  color;
+  const _StatCard({required this.label, required this.value, required this.color});
+
   @override
-  Widget build(BuildContext context) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF122232),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(value,
-              style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.w400,
-                  fontSize: 22,
-                  color: kBlue)),
-          const SizedBox(height: 4),
-          Text(label,
-              style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.w400,
-                  fontSize: 11,
-                  color: Color(0xFF7D92A3))),
-        ],
-      ),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: kWhite,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [BoxShadow(color: color.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))],
+      border: Border(bottom: BorderSide(color: color, width: 3)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(value,
+            style: TextStyle(
+                fontFamily: 'Poppins',
+                fontWeight: FontWeight.w800,
+                fontSize: 22,
+                color: color)),
+        const SizedBox(height: 2),
+        Text(label,
+            style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 10,
+                color: kMuted)),
+      ],
     ),
   );
 }
-
-// Move all custom widgets above their first usage and ensure correct scope
-// Remove duplicate _buildQuickActions at the bottom
-// For quick actions, use closures to capture correct context and instance methods
-// All custom widgets (_SidebarDrawer, MyCertificatesScreen, _TabBtn, _EmptyState, _CompletionRow, _TranscriptRow, _OrderCard, _MoreSheet) are now defined above their first usage and in the correct scope.
-// _buildQuickActions is only defined as a method inside _DashboardScreenState and uses closures for context and instance methods.
